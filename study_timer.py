@@ -1,6 +1,6 @@
 import json  # Import JSON so we can save and load study data
 import tkinter as tk
-from datetime import datetime  # Import datetime so we can save the date of each study session
+from datetime import date, datetime, timedelta  # Import tools for dates and weekly calculations
 from pathlib import Path  # Import Path to work with file paths
 from tkinter import messagebox, simpledialog  # Import popup windows for messages and text input
 from uuid import uuid4  # Import uuid4 so every new subject can get a unique ID
@@ -22,6 +22,13 @@ def format_time(seconds):  # Function to format seconds into HH:MM:SS
     secs = seconds % 60  # Calculate the remaining seconds
 
     return f"{hours:02}:{minutes:02}:{secs:02}"  # Return the formatted time
+
+
+def format_hours_minutes(seconds):  # Function to format seconds into hours and minutes for statistics
+    hours = seconds // 3600  # Calculate the number of whole hours
+    minutes = (seconds % 3600) // 60  # Calculate the remaining whole minutes
+
+    return f"{hours} t {minutes:02} min"  # Return the time in a readable hours-and-minutes format
 
 
 def write_data(data):  # Function to write data to the JSON file
@@ -142,6 +149,81 @@ def calculate_total_logged_seconds(subject_id):  # Function to calculate total s
     return total_seconds  # Return the total saved time
 
 
+def calculate_weekly_logged_seconds(subject_id):  # Function to calculate study time for one subject this week
+    today = date.today()  # Get today's date
+
+    week_start = today - timedelta(
+        days=today.weekday()
+    )  # Find Monday of the current week
+
+    week_end = week_start + timedelta(days=6)  # Find Sunday of the current week
+
+    total_seconds = 0  # Start the weekly total at zero
+
+    for session in app_data["sessions"]:  # Go through every saved study session
+        if session["subject_id"] != subject_id:  # Skip sessions belonging to another subject
+            continue
+
+        session_date = date.fromisoformat(
+            session["date"]
+        )  # Convert the saved date text into a real Python date
+
+        if week_start <= session_date <= week_end:  # Check if the session happened this week
+            total_seconds += session["duration_seconds"]  # Add the session time to the weekly total
+
+    return total_seconds  # Return the total study time for this subject this week
+
+
+def update_statistics():  # Function to update the weekly and all-time statistics
+    weekly_lines = []  # List of text lines for the weekly overview
+    total_lines = []  # List of text lines for the all-time overview
+
+    weekly_grand_total = 0  # Total study time across all subjects this week
+    all_time_grand_total = 0  # Total study time across all subjects since the beginning
+
+    for subject in app_data["subjects"]:  # Go through every subject, including archived subjects
+        subject_id = subject["id"]  # Get the subject's permanent ID
+
+        weekly_seconds = calculate_weekly_logged_seconds(
+            subject_id
+        )  # Calculate this week's study time for the subject
+
+        total_seconds = calculate_total_logged_seconds(
+            subject_id
+        )  # Calculate all saved study time for the subject
+
+        weekly_grand_total += weekly_seconds  # Add the subject time to the weekly grand total
+        all_time_grand_total += total_seconds  # Add the subject time to the all-time grand total
+
+        if not subject["archived"] or weekly_seconds > 0:
+            weekly_lines.append(
+                f'{subject["name"]}: {format_hours_minutes(weekly_seconds)}'
+            )  # Show active subjects and archived subjects studied this week
+
+        if not subject["archived"] or total_seconds > 0:
+            archived_text = " (arkivert)" if subject["archived"] else ""
+
+            total_lines.append(
+                f'{subject["name"]}{archived_text}: {format_hours_minutes(total_seconds)}'
+            )  # Show subjects in the all-time overview without deleting archived history
+
+    weekly_lines.append(
+        f"\nTotalt: {format_hours_minutes(weekly_grand_total)}"
+    )  # Add the combined weekly total
+
+    total_lines.append(
+        f"\nTotalt: {format_hours_minutes(all_time_grand_total)}"
+    )  # Add the combined all-time total
+
+    weekly_statistics_label.config(
+        text="\n".join(weekly_lines)
+    )  # Update the weekly statistics shown on screen
+
+    total_statistics_label.config(
+        text="\n".join(total_lines)
+    )  # Update the all-time statistics shown on screen
+
+
 def update_subject_display():  # Function to update the selected subject and its total time
     subject = get_current_subject()  # Get the currently selected subject
 
@@ -246,6 +328,7 @@ def add_subject():  # Function to add a new subject
     save_data()  # Save the new subject permanently
 
     refresh_subject_buttons()  # Show the new subject on the main screen
+    update_statistics()  # Update the statistics to include the new subject
 
 
 def rename_subject():  # Function to rename the currently selected subject
@@ -299,6 +382,7 @@ def rename_subject():  # Function to rename the currently selected subject
 
     refresh_subject_buttons()  # Update the subject buttons
     update_subject_display()  # Update the subject title
+    update_statistics()  # Update the subject names shown in the statistics
 
 
 def archive_subject():  # Function to remove the selected subject from the main screen
@@ -348,6 +432,7 @@ def archive_subject():  # Function to remove the selected subject from the main 
 
     refresh_subject_buttons()  # Remove the archived subject from the main screen
     update_subject_display()  # Show the newly selected subject
+    update_statistics()  # Update the statistics after archiving the subject
 
 
 def update_timer():  # Function to update the timer every second
@@ -422,6 +507,7 @@ def save_session():  # Function to permanently save the current study session
 
     reset_session()  # Reset the current timer
     update_subject_display()  # Update the total saved study time
+    update_statistics()  # Update the weekly and all-time statistics
 
 
 def discard_session():  # Function to discard the current study session
@@ -452,7 +538,7 @@ current_subject_id = active_subjects[0]["id"]  # Select the first active subject
 window = tk.Tk()  # Create the main application window
 
 window.title("Study Timer")  # Set the application window title
-window.geometry("550x520")  # Set the size of the window
+window.geometry("700x700")  # Set the size of the window
 
 
 title_label = tk.Label(
@@ -585,9 +671,94 @@ archive_subject_button = tk.Button(
 
 archive_subject_button.pack(side="left", padx=5)  # Add the button beside Rename Subject
 
+statistics_frame = tk.Frame(window)  # Create a frame to contain the statistics sections
+
+statistics_frame.pack(
+    pady=15,
+    padx=20,
+    fill="x"
+)  # Add the statistics frame to the window
+
+
+weekly_frame = tk.Frame(
+    statistics_frame,
+    bd=1,
+    relief="solid"
+)  # Create a bordered frame for weekly statistics
+
+weekly_frame.pack(
+    side="left",
+    padx=10,
+    fill="both",
+    expand=True
+)  # Place the weekly overview on the left
+
+
+weekly_title_label = tk.Label(
+    weekly_frame,
+    text="DENNE UKEN",
+    font=("Arial", 14, "bold")
+)  # Create the weekly statistics title
+
+weekly_title_label.pack(pady=(10, 5))
+
+
+weekly_statistics_label = tk.Label(
+    weekly_frame,
+    text="",
+    font=("Arial", 12),
+    justify="left",
+    anchor="w"
+)  # Create the text area for weekly statistics
+
+weekly_statistics_label.pack(
+    padx=15,
+    pady=(5, 15),
+    anchor="w"
+)
+
+
+all_time_frame = tk.Frame(
+    statistics_frame,
+    bd=1,
+    relief="solid"
+)  # Create a bordered frame for all-time statistics
+
+all_time_frame.pack(
+    side="left",
+    padx=10,
+    fill="both",
+    expand=True
+)  # Place the all-time overview on the right
+
+
+total_title_label = tk.Label(
+    all_time_frame,
+    text="TOTALT SIDEN START",
+    font=("Arial", 14, "bold")
+)  # Create the all-time statistics title
+
+total_title_label.pack(pady=(10, 5))
+
+
+total_statistics_label = tk.Label(
+    all_time_frame,
+    text="",
+    font=("Arial", 12),
+    justify="left",
+    anchor="w"
+)  # Create the text area for all-time statistics
+
+total_statistics_label.pack(
+    padx=15,
+    pady=(5, 15),
+    anchor="w"
+)
+
 
 refresh_subject_buttons()  # Create the subject buttons when the application starts
-update_subject_display()  # Display the first selected subject and its saved total
+update_subject_display()  # Display the selected subject and its saved total
+update_statistics()  # Display the weekly and all-time statistics when the application starts
 
 
 window.mainloop()  # Start the Tkinter event loop and keep the application running
