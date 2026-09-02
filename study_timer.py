@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk  # Import ttk for more modern-looking interface elements
 from datetime import datetime  # Import datetime so we can save the date of each study session
 from tkinter import messagebox, simpledialog  # Import popup windows for messages and text input
 from uuid import uuid4  # Import uuid4 so every new subject gets a unique ID
@@ -118,21 +119,26 @@ def update_statistics():  # Function to update weekly and all-time statistics
 
 def refresh_subject_buttons():  # Function to rebuild the subject buttons
     for widget in subject_buttons_frame.winfo_children():  # Go through existing buttons
-        widget.destroy()  # Remove each old button
+        widget.destroy()  # Remove each old subject button
 
     for subject in get_active_subjects(app_data):  # Create a button for every active subject
-        button = tk.Button(
+        if subject["id"] == current_subject_id:
+            button_style = "SelectedSubject.TButton"  # Use highlighted style for selected subject
+        else:
+            button_style = "Subject.TButton"  # Use normal style for other subjects
+
+        button = ttk.Button(
             subject_buttons_frame,
             text=subject["name"],
             command=lambda subject_id=subject["id"]: select_subject(subject_id),
-            relief="sunken" if subject["id"] == current_subject_id else "raised"
-        )
+            style=button_style
+        )  # Create the subject button
 
         button.pack(
             side="left",
             padx=4,
             pady=4
-        )  # Add the subject button to the window
+        )  # Add the subject button to the subject selector
 
 
 def select_subject(subject_id):  # Function to switch to another subject
@@ -410,229 +416,531 @@ current_subject_id = active_subjects[0]["id"]  # Select the first active subject
 
 window = tk.Tk()  # Create the main application window
 
-window.title("Study Timer")  # Set window title
-window.geometry("700x700")  # Set window size
+window.title("Study Timer")  # Set the application window title
+window.geometry("760x720")  # Set the starting size of the window
+window.minsize(680, 620)  # Prevent the window from becoming too small
 
 
-title_label = tk.Label(
+# -----------------------------
+# COLORS
+# -----------------------------
+
+BACKGROUND_COLOR = "#F4F5F7"  # Main application background
+CARD_COLOR = "#FFFFFF"  # Background used for cards
+TEXT_COLOR = "#1F2937"  # Main text color
+MUTED_TEXT_COLOR = "#6B7280"  # Secondary text color
+ACCENT_COLOR = "#2563EB"  # Main accent color
+ACCENT_HOVER_COLOR = "#1D4ED8"  # Darker accent used when buttons are active
+
+
+window.configure(
+    bg=BACKGROUND_COLOR
+)  # Set the background color of the main window
+
+
+# -----------------------------
+# TTK STYLES
+# -----------------------------
+
+style = ttk.Style()  # Create an object used to control ttk styles
+
+if "clam" in style.theme_names():
+    style.theme_use("clam")  # Use a theme that gives us more control over colors
+
+
+style.configure(
+    "App.TFrame",
+    background=BACKGROUND_COLOR
+)  # Style used for the application's main background
+
+
+style.configure(
+    "Card.TFrame",
+    background=CARD_COLOR
+)  # Style used for white card sections
+
+
+style.configure(
+    "Title.TLabel",
+    background=BACKGROUND_COLOR,
+    foreground=TEXT_COLOR,
+    font=("Helvetica Neue", 26, "bold")
+)  # Style for the main title
+
+
+style.configure(
+    "Subtitle.TLabel",
+    background=BACKGROUND_COLOR,
+    foreground=MUTED_TEXT_COLOR,
+    font=("Helvetica Neue", 12)
+)  # Style for secondary text under the title
+
+
+style.configure(
+    "Section.TLabel",
+    background=BACKGROUND_COLOR,
+    foreground=MUTED_TEXT_COLOR,
+    font=("Helvetica Neue", 11, "bold")
+)  # Style for section headings
+
+
+style.configure(
+    "SubjectName.TLabel",
+    background=CARD_COLOR,
+    foreground=TEXT_COLOR,
+    font=("Helvetica Neue", 18, "bold")
+)  # Style for the selected subject name
+
+
+style.configure(
+    "Timer.TLabel",
+    background=CARD_COLOR,
+    foreground=TEXT_COLOR,
+    font=("Helvetica Neue", 40, "bold")
+)  # Style for the large timer
+
+
+style.configure(
+    "CardText.TLabel",
+    background=CARD_COLOR,
+    foreground=TEXT_COLOR,
+    font=("Helvetica Neue", 12)
+)  # Normal text shown inside cards
+
+
+style.configure(
+    "MutedCardText.TLabel",
+    background=CARD_COLOR,
+    foreground=MUTED_TEXT_COLOR,
+    font=("Helvetica Neue", 11)
+)  # Secondary text shown inside cards
+
+
+style.configure(
+    "Subject.TButton",
+    font=("Helvetica Neue", 11),
+    padding=(12, 7)
+)  # Style for normal subject buttons
+
+
+style.configure(
+    "SelectedSubject.TButton",
+    font=("Helvetica Neue", 11, "bold"),
+    padding=(12, 7),
+    foreground="white",
+    background=ACCENT_COLOR
+)  # Style for the currently selected subject
+
+
+style.map(
+    "SelectedSubject.TButton",
+    background=[
+        ("active", ACCENT_HOVER_COLOR),
+        ("!disabled", ACCENT_COLOR)
+    ],
+    foreground=[
+        ("!disabled", "white")
+    ]
+)  # Keep the selected subject highlighted
+
+
+style.configure(
+    "Primary.TButton",
+    font=("Helvetica Neue", 12, "bold"),
+    padding=(18, 9),
+    foreground="white",
+    background=ACCENT_COLOR
+)  # Style for important action buttons such as Start
+
+
+style.map(
+    "Primary.TButton",
+    background=[
+        ("active", ACCENT_HOVER_COLOR),
+        ("!disabled", ACCENT_COLOR)
+    ],
+    foreground=[
+        ("!disabled", "white")
+    ]
+)  # Define how the primary button looks when active
+
+
+style.configure(
+    "Secondary.TButton",
+    font=("Helvetica Neue", 11),
+    padding=(12, 7)
+)  # Style for secondary buttons
+
+
+# -----------------------------
+# MAIN CONTAINER
+# -----------------------------
+
+main_frame = ttk.Frame(
     window,
+    style="App.TFrame",
+    padding=25
+)  # Create the main container for everything in the application
+
+main_frame.pack(
+    fill="both",
+    expand=True
+)  # Make the main container fill the window
+
+
+# -----------------------------
+# HEADER
+# -----------------------------
+
+title_label = ttk.Label(
+    main_frame,
     text="Study Timer",
-    font=("Arial", 24)
+    style="Title.TLabel"
+)  # Create the main application title
+
+title_label.pack(
+    anchor="w"
+)  # Place the title on the left
+
+
+subtitle_label = ttk.Label(
+    main_frame,
+    text="Hold oversikt over tiden du bruker på studiene.",
+    style="Subtitle.TLabel"
+)  # Create a short description under the title
+
+subtitle_label.pack(
+    anchor="w",
+    pady=(2, 22)
+)  # Add some space below the subtitle
+
+
+# -----------------------------
+# SUBJECT SELECTOR
+# -----------------------------
+
+subjects_title_label = ttk.Label(
+    main_frame,
+    text="FAG",
+    style="Section.TLabel"
+)  # Create the subject section heading
+
+subjects_title_label.pack(
+    anchor="w"
 )
 
-title_label.pack(pady=20)
 
+subject_buttons_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Create a frame containing subject buttons
 
-subjects_title_label = tk.Label(
-    window,
-    text="Fag",
-    font=("Arial", 12)
+subject_buttons_frame.pack(
+    anchor="w",
+    pady=(4, 14)
 )
 
-subjects_title_label.pack()
+
+# -----------------------------
+# TIMER CARD
+# -----------------------------
+
+timer_card = ttk.Frame(
+    main_frame,
+    style="Card.TFrame",
+    padding=22
+)  # Create the main timer card
+
+timer_card.pack(
+    fill="x",
+    pady=(0, 12)
+)
 
 
-subject_buttons_frame = tk.Frame(window)
-
-subject_buttons_frame.pack(pady=5)
-
-
-subject_label = tk.Label(
-    window,
+subject_label = ttk.Label(
+    timer_card,
     text="",
-    font=("Arial", 18)
-)
+    style="SubjectName.TLabel"
+)  # Create the selected subject title
 
-subject_label.pack(pady=10)
+subject_label.pack()
 
 
-timer_label = tk.Label(
-    window,
+timer_label = ttk.Label(
+    timer_card,
     text="00:00:00",
-    font=("Arial", 32)
+    style="Timer.TLabel"
+)  # Create the large timer display
+
+timer_label.pack(
+    pady=(8, 16)
 )
 
-timer_label.pack(pady=15)
+
+timer_buttons_frame = ttk.Frame(
+    timer_card,
+    style="Card.TFrame"
+)  # Create a frame for Start and Stop
+
+timer_buttons_frame.pack()
 
 
-start_button = tk.Button(
-    window,
+start_button = ttk.Button(
+    timer_buttons_frame,
     text="START",
-    command=start_timer
+    command=start_timer,
+    style="Primary.TButton"
+)  # Create the Start button
+
+start_button.pack(
+    side="left",
+    padx=5
 )
 
-start_button.pack()
 
-
-stop_button = tk.Button(
-    window,
+stop_button = ttk.Button(
+    timer_buttons_frame,
     text="STOPP",
     command=stop_timer,
-    state="disabled"
+    state="disabled",
+    style="Secondary.TButton"
+)  # Create the Stop button
+
+stop_button.pack(
+    side="left",
+    padx=5
 )
 
-stop_button.pack(pady=10)
 
-
-session_label = tk.Label(
-    window,
+session_label = ttk.Label(
+    timer_card,
     text="",
-    font=("Arial", 14)
+    style="MutedCardText.TLabel"
+)  # Create the label that shows the paused session time
+
+session_label.pack(
+    pady=(10, 0)
 )
 
-session_label.pack()
+
+decision_frame = ttk.Frame(
+    timer_card,
+    style="Card.TFrame"
+)  # Create a container for Save and Discard buttons
 
 
-decision_frame = tk.Frame(window)
-
-
-save_button = tk.Button(
+save_button = ttk.Button(
     decision_frame,
     text="LAGRE TID",
-    command=save_session
+    command=save_session,
+    style="Primary.TButton"
+)  # Create the Save Session button
+
+save_button.pack(
+    side="left",
+    padx=5
 )
 
-save_button.pack(side="left", padx=5)
 
-
-discard_button = tk.Button(
+discard_button = ttk.Button(
     decision_frame,
     text="KAST TID",
-    command=discard_session
+    command=discard_session,
+    style="Secondary.TButton"
+)  # Create the Discard Session button
+
+discard_button.pack(
+    side="left",
+    padx=5
 )
 
-discard_button.pack(side="left", padx=5)
 
-
-total_label = tk.Label(
-    window,
+total_label = ttk.Label(
+    timer_card,
     text="",
-    font=("Arial", 14)
+    style="CardText.TLabel"
+)  # Create the selected subject total
+
+total_label.pack(
+    pady=(16, 0)
 )
 
-total_label.pack(pady=15)
+
+# -----------------------------
+# SUBJECT MANAGEMENT
+# -----------------------------
+
+management_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Create a frame for subject management controls
+
+management_frame.pack(
+    anchor="w",
+    pady=(0, 22)
+)
 
 
-management_frame = tk.Frame(window)
-
-management_frame.pack(pady=10)
-
-
-add_subject_button = tk.Button(
+add_subject_button = ttk.Button(
     management_frame,
     text="+ LEGG TIL FAG",
-    command=add_subject
+    command=add_subject,
+    style="Secondary.TButton"
+)  # Create the Add Subject button
+
+add_subject_button.pack(
+    side="left",
+    padx=(0, 5)
 )
 
-add_subject_button.pack(side="left", padx=5)
 
-
-rename_subject_button = tk.Button(
+rename_subject_button = ttk.Button(
     management_frame,
     text="ENDRE NAVN",
-    command=rename_subject
+    command=rename_subject,
+    style="Secondary.TButton"
+)  # Create the Rename Subject button
+
+rename_subject_button.pack(
+    side="left",
+    padx=5
 )
 
-rename_subject_button.pack(side="left", padx=5)
 
-
-archive_subject_button = tk.Button(
+archive_subject_button = ttk.Button(
     management_frame,
     text="FJERN FAG",
-    command=archive_subject
+    command=archive_subject,
+    style="Secondary.TButton"
+)  # Create the Archive Subject button
+
+archive_subject_button.pack(
+    side="left",
+    padx=5
 )
 
-archive_subject_button.pack(side="left", padx=5)
+
+# -----------------------------
+# STATISTICS
+# -----------------------------
+
+statistics_title_label = ttk.Label(
+    main_frame,
+    text="PROGRESJON",
+    style="Section.TLabel"
+)  # Create the statistics section heading
+
+statistics_title_label.pack(
+    anchor="w",
+    pady=(0, 6)
+)
 
 
-statistics_frame = tk.Frame(window)
+statistics_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Create the container for both statistics cards
 
 statistics_frame.pack(
-    pady=15,
-    padx=20,
-    fill="x"
-)
-
-
-weekly_frame = tk.Frame(
-    statistics_frame,
-    bd=1,
-    relief="solid"
-)
-
-weekly_frame.pack(
-    side="left",
-    padx=10,
     fill="both",
     expand=True
 )
 
 
-weekly_title_label = tk.Label(
+statistics_frame.columnconfigure(
+    0,
+    weight=1
+)
+
+statistics_frame.columnconfigure(
+    1,
+    weight=1
+)  # Make both statistics columns use equal space
+
+
+weekly_frame = ttk.Frame(
+    statistics_frame,
+    style="Card.TFrame",
+    padding=18
+)  # Create the weekly statistics card
+
+weekly_frame.grid(
+    row=0,
+    column=0,
+    sticky="nsew",
+    padx=(0, 6)
+)
+
+
+weekly_title_label = ttk.Label(
     weekly_frame,
     text="DENNE UKEN",
-    font=("Arial", 14, "bold")
+    style="SubjectName.TLabel"
+)  # Create the weekly statistics heading
+
+weekly_title_label.pack(
+    anchor="w",
+    pady=(0, 10)
 )
 
-weekly_title_label.pack(pady=(10, 5))
 
-
-weekly_statistics_label = tk.Label(
+weekly_statistics_label = ttk.Label(
     weekly_frame,
     text="",
-    font=("Arial", 12),
-    justify="left",
-    anchor="w"
-)
+    style="CardText.TLabel",
+    justify="left"
+)  # Create the weekly statistics text
 
 weekly_statistics_label.pack(
-    padx=15,
-    pady=(5, 15),
     anchor="w"
 )
 
 
-all_time_frame = tk.Frame(
+all_time_frame = ttk.Frame(
     statistics_frame,
-    bd=1,
-    relief="solid"
+    style="Card.TFrame",
+    padding=18
+)  # Create the all-time statistics card
+
+all_time_frame.grid(
+    row=0,
+    column=1,
+    sticky="nsew",
+    padx=(6, 0)
 )
 
-all_time_frame.pack(
-    side="left",
-    padx=10,
-    fill="both",
-    expand=True
-)
 
-
-total_title_label = tk.Label(
+total_title_label = ttk.Label(
     all_time_frame,
     text="TOTALT SIDEN START",
-    font=("Arial", 14, "bold")
+    style="SubjectName.TLabel"
+)  # Create the all-time statistics heading
+
+total_title_label.pack(
+    anchor="w",
+    pady=(0, 10)
 )
 
-total_title_label.pack(pady=(10, 5))
 
-
-total_statistics_label = tk.Label(
+total_statistics_label = ttk.Label(
     all_time_frame,
     text="",
-    font=("Arial", 12),
-    justify="left",
-    anchor="w"
-)
+    style="CardText.TLabel",
+    justify="left"
+)  # Create the all-time statistics text
 
 total_statistics_label.pack(
-    padx=15,
-    pady=(5, 15),
     anchor="w"
 )
 
 
+# -----------------------------
+# INITIAL DISPLAY
+# -----------------------------
+
 refresh_subject_buttons()  # Create subject buttons when the application starts
-update_subject_display()  # Display the selected subject
-update_statistics()  # Display statistics
+update_subject_display()  # Display the selected subject and its saved total
+update_statistics()  # Display weekly and all-time statistics
 
 
-window.mainloop()  # Keep the application running
+window.mainloop()  # Start the Tkinter event loop and keep the application running
