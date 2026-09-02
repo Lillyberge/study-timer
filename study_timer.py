@@ -422,8 +422,8 @@ current_subject_id = active_subjects[0]["id"]  # Select the first active subject
 window = tk.Tk()  # Create the main application window
 
 window.title("Study Timer")  # Set the application window title
-window.geometry("760x720")  # Set the starting size of the window
-window.minsize(680, 620)  # Prevent the window from becoming too small
+window.geometry("560x500")  # Make the application about the size of a desktop sticky note
+window.minsize(520, 470)  # Allow the window to stay compact
 
 configure_styles(window)  # Apply the application's styles to the window and ttk widgets
 
@@ -436,7 +436,7 @@ configure_styles(window)  # Apply the application's styles to the window and ttk
 main_frame = ttk.Frame(
     window,
     style="App.TFrame",
-    padding=25
+    padding=12
 )  # Create the main container for everything in the application
 
 main_frame.pack(
@@ -459,17 +459,6 @@ title_label.pack(
     anchor="w"
 )  # Place the title on the left
 
-
-subtitle_label = ttk.Label(
-    main_frame,
-    text="Hold oversikt over tiden du bruker på studiene.",
-    style="Subtitle.TLabel"
-)  # Create a short description under the title
-
-subtitle_label.pack(
-    anchor="w",
-    pady=(2, 22)
-)  # Add some space below the subtitle
 
 
 # -----------------------------
@@ -505,7 +494,7 @@ subject_buttons_frame.pack(
 timer_card = ttk.Frame(
     main_frame,
     style="Card.TFrame",
-    padding=22
+    padding=10
 )  # Create the main timer card
 
 timer_card.pack(
@@ -530,7 +519,7 @@ timer_label = ttk.Label(
 )  # Create the large timer display
 
 timer_label.pack(
-    pady=(8, 16)
+    pady=(4, 8)
 )
 
 
@@ -718,7 +707,7 @@ statistics_frame.columnconfigure(
 weekly_frame = ttk.Frame(
     statistics_frame,
     style="Card.TFrame",
-    padding=18
+    padding=9
 )  # Create the weekly statistics card
 
 weekly_frame.grid(
@@ -732,8 +721,8 @@ weekly_frame.grid(
 weekly_title_label = ttk.Label(
     weekly_frame,
     text="DENNE UKEN",
-    style="SubjectName.TLabel"
-)  # Create the weekly statistics heading
+    style="StatisticsTitle.TLabel"
+)
 
 weekly_title_label.pack(
     anchor="w",
@@ -744,7 +733,7 @@ weekly_title_label.pack(
 weekly_statistics_label = ttk.Label(
     weekly_frame,
     text="",
-    style="CardText.TLabel",
+    style="Statistics.TLabel",
     justify="left"
 )  # Create the weekly statistics text
 
@@ -756,7 +745,7 @@ weekly_statistics_label.pack(
 all_time_frame = ttk.Frame(
     statistics_frame,
     style="Card.TFrame",
-    padding=18
+    padding=9
 )  # Create the all-time statistics card
 
 all_time_frame.grid(
@@ -770,8 +759,8 @@ all_time_frame.grid(
 total_title_label = ttk.Label(
     all_time_frame,
     text="TOTALT SIDEN START",
-    style="SubjectName.TLabel"
-)  # Create the all-time statistics heading
+    style="StatisticsTitle.TLabel"
+)
 
 total_title_label.pack(
     anchor="w",
@@ -782,7 +771,7 @@ total_title_label.pack(
 total_statistics_label = ttk.Label(
     all_time_frame,
     text="",
-    style="CardText.TLabel",
+    style="Statistics.TLabel",
     justify="left"
 )  # Create the all-time statistics text
 

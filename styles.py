@@ -5,12 +5,15 @@ from tkinter import ttk  # Import ttk so we can configure the application's visu
 # COLORS
 # -----------------------------
 
-BACKGROUND_COLOR = "#F4F5F7"  # Main application background
-CARD_COLOR = "#FFFFFF"  # Background used for cards
-TEXT_COLOR = "#1F2937"  # Main text color
-MUTED_TEXT_COLOR = "#6B7280"  # Secondary text color
-ACCENT_COLOR = "#2563EB"  # Main accent color
-ACCENT_HOVER_COLOR = "#1D4ED8"  # Darker accent color used when hovering or pressing
+BACKGROUND_COLOR = "#BFE4FF"  # Light blue application background
+CARD_COLOR = "#FFFFFF"  # White background used for cards
+
+TEXT_COLOR = "#243447"  # Main dark text color
+MUTED_TEXT_COLOR = "#6B7C93"  # Softer text color for secondary information
+
+BUTTON_COLOR = "#F7C6D9"  # Light pink default button color
+BUTTON_HOVER_COLOR = "#E88FAF"  # Darker pink when hovering over a button
+BUTTON_PRESSED_COLOR = "#C94F70"  # Dark pink/red when pressing a button
 
 
 def configure_styles(window):  # Function to configure all visual styles used by the application
@@ -48,7 +51,7 @@ def configure_styles(window):  # Function to configure all visual styles used by
         "Title.TLabel",
         background=BACKGROUND_COLOR,
         foreground=TEXT_COLOR,
-        font=("Helvetica Neue", 26, "bold")
+        font=("Helvetica Neue", 21, "bold")
     )  # Style for the main application title
 
 
@@ -80,7 +83,7 @@ def configure_styles(window):  # Function to configure all visual styles used by
         "Timer.TLabel",
         background=CARD_COLOR,
         foreground=TEXT_COLOR,
-        font=("Helvetica Neue", 40, "bold")
+        font=("Helvetica Neue", 32, "bold")
     )  # Style for the large timer display
 
 
@@ -104,32 +107,50 @@ def configure_styles(window):  # Function to configure all visual styles used by
     # SUBJECT BUTTONS
     # -----------------------------
 
+    
     style.configure(
         "Subject.TButton",
         font=("Helvetica Neue", 11),
-        padding=(12, 7)
-    )  # Style for subject buttons that are not selected
+        padding=(9, 5),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Style for normal subject buttons
+
+
+    style.map(
+        "Subject.TButton",
+        background=[
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
+        ],
+        foreground=[
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
+        ]
+    )  # Change the subject button color when hovering or pressing
 
 
     style.configure(
         "SelectedSubject.TButton",
         font=("Helvetica Neue", 11, "bold"),
-        padding=(12, 7),
+        padding=(9, 5),
         foreground="white",
-        background=ACCENT_COLOR
-    )  # Style for the currently selected subject
+        background=BUTTON_PRESSED_COLOR
+    )  # Use a darker pink for the currently selected subject
 
 
     style.map(
         "SelectedSubject.TButton",
         background=[
-            ("active", ACCENT_HOVER_COLOR),
-            ("!disabled", ACCENT_COLOR)
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_PRESSED_COLOR),
+            ("!disabled", BUTTON_PRESSED_COLOR)
         ],
         foreground=[
             ("!disabled", "white")
         ]
-    )  # Define how the selected subject button looks in different states
+    )  # Keep the selected subject dark pink
 
 
     # -----------------------------
@@ -139,26 +160,60 @@ def configure_styles(window):  # Function to configure all visual styles used by
     style.configure(
         "Primary.TButton",
         font=("Helvetica Neue", 12, "bold"),
-        padding=(18, 9),
-        foreground="white",
-        background=ACCENT_COLOR
-    )  # Style for important buttons such as Start and Save
+        padding=(12, 6),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Style for important action buttons such as Start and Save
 
 
     style.map(
         "Primary.TButton",
         background=[
-            ("active", ACCENT_HOVER_COLOR),
-            ("!disabled", ACCENT_COLOR)
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
         ],
         foreground=[
-            ("!disabled", "white")
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
         ]
-    )  # Define how primary buttons look in different states
+    )  # Make primary buttons darker when hovering or pressing
 
 
     style.configure(
         "Secondary.TButton",
         font=("Helvetica Neue", 11),
-        padding=(12, 7)
-    )  # Style for secondary buttons such as Stop and Rename
+        padding=(9, 5),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Style for secondary buttons
+
+
+    style.map(
+        "Secondary.TButton",
+        background=[
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
+        ],
+        foreground=[
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
+        ]
+    )  # Make secondary buttons darker when hovering or pressing
+    
+    
+    style.configure(
+        "Statistics.TLabel",
+        background=CARD_COLOR,
+        foreground=TEXT_COLOR,
+        font=("Helvetica Neue", 10)
+    )  # Compact text used inside statistics cards
+    
+    
+    style.configure(
+        "StatisticsTitle.TLabel",
+        background=CARD_COLOR,
+        foreground=TEXT_COLOR,
+        font=("Helvetica Neue", 12, "bold")
+    )  # Compact title for statistics cards
