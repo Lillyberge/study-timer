@@ -4,6 +4,7 @@ from datetime import datetime  # Import datetime so we can save the date of each
 from tkinter import messagebox, simpledialog  # Import popup windows for messages and text input
 from uuid import uuid4  # Import uuid4 so every new subject gets a unique ID
 
+
 from data_manager import (
     calculate_total_logged_seconds,
     calculate_weekly_logged_seconds,
@@ -12,6 +13,10 @@ from data_manager import (
     load_data,
     save_data
 )  # Import data functions from our own data_manager module
+
+
+from styles import configure_styles  # Import the application's visual style configuration
+
 
 
 MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
@@ -420,156 +425,8 @@ window.title("Study Timer")  # Set the application window title
 window.geometry("760x720")  # Set the starting size of the window
 window.minsize(680, 620)  # Prevent the window from becoming too small
 
+configure_styles(window)  # Apply the application's styles to the window and ttk widgets
 
-# -----------------------------
-# COLORS
-# -----------------------------
-
-BACKGROUND_COLOR = "#F4F5F7"  # Main application background
-CARD_COLOR = "#FFFFFF"  # Background used for cards
-TEXT_COLOR = "#1F2937"  # Main text color
-MUTED_TEXT_COLOR = "#6B7280"  # Secondary text color
-ACCENT_COLOR = "#2563EB"  # Main accent color
-ACCENT_HOVER_COLOR = "#1D4ED8"  # Darker accent used when buttons are active
-
-
-window.configure(
-    bg=BACKGROUND_COLOR
-)  # Set the background color of the main window
-
-
-# -----------------------------
-# TTK STYLES
-# -----------------------------
-
-style = ttk.Style()  # Create an object used to control ttk styles
-
-if "clam" in style.theme_names():
-    style.theme_use("clam")  # Use a theme that gives us more control over colors
-
-
-style.configure(
-    "App.TFrame",
-    background=BACKGROUND_COLOR
-)  # Style used for the application's main background
-
-
-style.configure(
-    "Card.TFrame",
-    background=CARD_COLOR
-)  # Style used for white card sections
-
-
-style.configure(
-    "Title.TLabel",
-    background=BACKGROUND_COLOR,
-    foreground=TEXT_COLOR,
-    font=("Helvetica Neue", 26, "bold")
-)  # Style for the main title
-
-
-style.configure(
-    "Subtitle.TLabel",
-    background=BACKGROUND_COLOR,
-    foreground=MUTED_TEXT_COLOR,
-    font=("Helvetica Neue", 12)
-)  # Style for secondary text under the title
-
-
-style.configure(
-    "Section.TLabel",
-    background=BACKGROUND_COLOR,
-    foreground=MUTED_TEXT_COLOR,
-    font=("Helvetica Neue", 11, "bold")
-)  # Style for section headings
-
-
-style.configure(
-    "SubjectName.TLabel",
-    background=CARD_COLOR,
-    foreground=TEXT_COLOR,
-    font=("Helvetica Neue", 18, "bold")
-)  # Style for the selected subject name
-
-
-style.configure(
-    "Timer.TLabel",
-    background=CARD_COLOR,
-    foreground=TEXT_COLOR,
-    font=("Helvetica Neue", 40, "bold")
-)  # Style for the large timer
-
-
-style.configure(
-    "CardText.TLabel",
-    background=CARD_COLOR,
-    foreground=TEXT_COLOR,
-    font=("Helvetica Neue", 12)
-)  # Normal text shown inside cards
-
-
-style.configure(
-    "MutedCardText.TLabel",
-    background=CARD_COLOR,
-    foreground=MUTED_TEXT_COLOR,
-    font=("Helvetica Neue", 11)
-)  # Secondary text shown inside cards
-
-
-style.configure(
-    "Subject.TButton",
-    font=("Helvetica Neue", 11),
-    padding=(12, 7)
-)  # Style for normal subject buttons
-
-
-style.configure(
-    "SelectedSubject.TButton",
-    font=("Helvetica Neue", 11, "bold"),
-    padding=(12, 7),
-    foreground="white",
-    background=ACCENT_COLOR
-)  # Style for the currently selected subject
-
-
-style.map(
-    "SelectedSubject.TButton",
-    background=[
-        ("active", ACCENT_HOVER_COLOR),
-        ("!disabled", ACCENT_COLOR)
-    ],
-    foreground=[
-        ("!disabled", "white")
-    ]
-)  # Keep the selected subject highlighted
-
-
-style.configure(
-    "Primary.TButton",
-    font=("Helvetica Neue", 12, "bold"),
-    padding=(18, 9),
-    foreground="white",
-    background=ACCENT_COLOR
-)  # Style for important action buttons such as Start
-
-
-style.map(
-    "Primary.TButton",
-    background=[
-        ("active", ACCENT_HOVER_COLOR),
-        ("!disabled", ACCENT_COLOR)
-    ],
-    foreground=[
-        ("!disabled", "white")
-    ]
-)  # Define how the primary button looks when active
-
-
-style.configure(
-    "Secondary.TButton",
-    font=("Helvetica Neue", 11),
-    padding=(12, 7)
-)  # Style for secondary buttons
 
 
 # -----------------------------
