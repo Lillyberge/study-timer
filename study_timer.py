@@ -14,7 +14,7 @@ from data_manager import (
     save_data
 )  # Import data functions from our own data_manager module
 
-
+from settings_manager import load_settings, save_settings  # Import functions for saving application preferences
 from styles import configure_styles  # Import the application's visual style configuration
 
 
@@ -162,6 +162,9 @@ def select_subject(subject_id):  # Function to switch to another subject
         return
 
     current_subject_id = subject_id  # Select the new subject
+    
+    app_settings["selected_subject_id"] = current_subject_id  # Remember the newly selected subject
+    save_settings(app_settings)  # Save the selected subject permanently
 
     refresh_subject_buttons()  # Update the selected subject button
     update_subject_display()  # Update the subject name and total time
@@ -420,6 +423,9 @@ def show_compact_view():  # Function to switch the application to compact mode
     global view_expanded  # Access the variable that tracks the current view
 
     view_expanded = False  # Remember that the application is now compact
+    
+    app_settings["view_expanded"] = False  # Remember that compact mode is selected
+    save_settings(app_settings)  # Save the view preference
 
     expanded_content_frame.pack_forget()  # Hide subject management and detailed statistics
 
@@ -436,6 +442,9 @@ def show_expanded_view():  # Function to show the full application interface
     global view_expanded  # Access the variable that tracks the current view
 
     view_expanded = True  # Remember that the extended interface is visible
+    
+    app_settings["view_expanded"] = True  # Remember that expanded mode is selected
+    save_settings(app_settings)  # Save the view preference
 
     expanded_content_frame.pack(
         fill="both",
@@ -458,17 +467,47 @@ def toggle_view():  # Function to switch between compact and expanded mode
         show_expanded_view()  # Switch to expanded mode
 
 
+def close_application():  # Function to save application state before closing
+    app_settings["selected_subject_id"] = current_subject_id  # Remember the selected subject
+    app_settings["view_expanded"] = view_expanded  # Remember the current interface mode
+
+    app_settings["window_x"] = window.winfo_x()  # Save the window's horizontal position
+    app_settings["window_y"] = window.winfo_y()  # Save the window's vertical position
+
+    save_settings(app_settings)  # Permanently save the application settings
+
+    window.destroy()  # Close the application window
+    
+
 app_data = load_data()  # Load saved application data
+
+app_settings = load_settings()  # Load saved application preferences
 
 active_subjects = get_active_subjects(app_data)  # Get active subjects
 
-current_subject_id = active_subjects[0]["id"]  # Select the first active subject
+saved_subject_id = app_settings["selected_subject_id"]  # Get the subject that was selected when the app was last closed
+
+active_subject_ids = [
+    subject["id"] for subject in active_subjects
+]  # Create a list containing the IDs of all active subjects
+
+
+if saved_subject_id in active_subject_ids:
+    current_subject_id = saved_subject_id  # Restore the previously selected subject if it is still active
+else:
+    current_subject_id = active_subjects[0]["id"]  # Otherwise select the first active subject
 
 
 window = tk.Tk()  # Create the main application window
 
 window.title("Study Timer")  # Set the application window title
-window.geometry(COMPACT_GEOMETRY)  # Start the application in compact mode
+
+window.protocol(
+    "WM_DELETE_WINDOW",
+    close_application
+)  # Run close_application when the user closes the window
+
+
 window.minsize(520, 300)  # Allow the compact window to stay small
 
 configure_styles(window)  # Apply the application's styles to the window and ttk widgets
@@ -857,7 +896,22 @@ refresh_subject_buttons()  # Create subject buttons when the application starts
 update_subject_display()  # Display the selected subject and its saved total
 update_statistics()  # Prepare weekly and all-time statistics
 
-show_compact_view()  # Start the application in compact mode
+if app_settings["view_expanded"]:
+    show_expanded_view()  # Restore expanded mode if it was used last
+else:
+    show_compact_view()  # Otherwise start in compact mode
+    
+    
+saved_x = app_settings["window_x"]  # Get the previously saved horizontal window position
+saved_y = app_settings["window_y"]  # Get the previously saved vertical window position
+
+
+if saved_x is not None and saved_y is not None:
+    current_geometry = EXPANDED_GEOMETRY if view_expanded else COMPACT_GEOMETRY
+
+    window.geometry(
+        f"{current_geometry}+{saved_x}+{saved_y}"
+    )  # Restore both the window size and its previous screen position
 
 
 window.mainloop()  # Start the Tkinter event loop and keep the application running
