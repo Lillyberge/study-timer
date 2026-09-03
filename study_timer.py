@@ -21,11 +21,15 @@ from styles import configure_styles  # Import the application's visual style con
 
 MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 
+COMPACT_GEOMETRY = "560x380"  # Size of the window in compact mode
+EXPANDED_GEOMETRY = "560x590"  # Size of the window when the extra controls are visible
+
 
 elapsed_seconds = 0  # Seconds recorded in the current study session
 timer_running = False  # Variable to track whether the timer is running
 timer_job = None  # Variable to remember the scheduled timer update
 current_subject_id = None  # ID of the subject currently selected
+view_expanded = False  # Variable to track whether the extended interface is visible
 
 
 def format_time(seconds):  # Function to format seconds into HH:MM:SS
@@ -410,6 +414,48 @@ def reset_session():  # Function to reset the current study session
 
     start_button.config(state="normal")  # Enable Start
     stop_button.config(state="disabled")  # Disable Stop
+    
+
+def show_compact_view():  # Function to switch the application to compact mode
+    global view_expanded  # Access the variable that tracks the current view
+
+    view_expanded = False  # Remember that the application is now compact
+
+    expanded_content_frame.pack_forget()  # Hide subject management and detailed statistics
+
+    toggle_view_button.config(
+        text="VIS MER ↓"
+    )  # Change the button text so the user can expand the application again
+
+    window.geometry(
+        COMPACT_GEOMETRY
+    )  # Resize the application to the compact window size
+
+
+def show_expanded_view():  # Function to show the full application interface
+    global view_expanded  # Access the variable that tracks the current view
+
+    view_expanded = True  # Remember that the extended interface is visible
+
+    expanded_content_frame.pack(
+        fill="both",
+        expand=True
+    )  # Show subject management and detailed statistics
+
+    toggle_view_button.config(
+        text="VIS MINDRE ↑"
+    )  # Change the button text so the user can collapse the application
+
+    window.geometry(
+        EXPANDED_GEOMETRY
+    )  # Resize the application to the larger window size
+
+
+def toggle_view():  # Function to switch between compact and expanded mode
+    if view_expanded:  # Check if the extended interface is currently visible
+        show_compact_view()  # Switch to compact mode
+    else:
+        show_expanded_view()  # Switch to expanded mode
 
 
 app_data = load_data()  # Load saved application data
@@ -422,8 +468,8 @@ current_subject_id = active_subjects[0]["id"]  # Select the first active subject
 window = tk.Tk()  # Create the main application window
 
 window.title("Study Timer")  # Set the application window title
-window.geometry("560x500")  # Make the application about the size of a desktop sticky note
-window.minsize(520, 470)  # Allow the window to stay compact
+window.geometry(COMPACT_GEOMETRY)  # Start the application in compact mode
+window.minsize(520, 300)  # Allow the compact window to stay small
 
 configure_styles(window)  # Apply the application's styles to the window and ttk widgets
 
@@ -613,11 +659,34 @@ total_label.pack(
 
 
 # -----------------------------
+# VIEW CONTROLS
+# -----------------------------
+
+toggle_view_button = ttk.Button(
+    main_frame,
+    text="VIS MER ↓",
+    command=toggle_view,
+    style="Secondary.TButton"
+)  # Create a button for switching between compact and expanded mode
+
+toggle_view_button.pack(
+    anchor="e",
+    pady=(6, 8)
+)  # Place the view button on the right side
+
+
+expanded_content_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Create one container for everything that should only appear in expanded mode
+
+
+# -----------------------------
 # SUBJECT MANAGEMENT
 # -----------------------------
 
 management_frame = ttk.Frame(
-    main_frame,
+    expanded_content_frame,
     style="App.TFrame"
 )  # Create a frame for subject management controls
 
@@ -671,7 +740,7 @@ archive_subject_button.pack(
 # -----------------------------
 
 statistics_title_label = ttk.Label(
-    main_frame,
+    expanded_content_frame,
     text="PROGRESJON",
     style="Section.TLabel"
 )  # Create the statistics section heading
@@ -683,7 +752,7 @@ statistics_title_label.pack(
 
 
 statistics_frame = ttk.Frame(
-    main_frame,
+    expanded_content_frame,
     style="App.TFrame"
 )  # Create the container for both statistics cards
 
@@ -786,7 +855,9 @@ total_statistics_label.pack(
 
 refresh_subject_buttons()  # Create subject buttons when the application starts
 update_subject_display()  # Display the selected subject and its saved total
-update_statistics()  # Display weekly and all-time statistics
+update_statistics()  # Prepare weekly and all-time statistics
+
+show_compact_view()  # Start the application in compact mode
 
 
 window.mainloop()  # Start the Tkinter event loop and keep the application running
