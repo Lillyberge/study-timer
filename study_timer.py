@@ -419,6 +419,41 @@ def reset_session():  # Function to reset the current study session
     stop_button.config(state="disabled")  # Disable Stop
     
 
+def close_application():  # Function to safely save state and close the application
+    if timer_running or elapsed_seconds > 0:  # Check if there is an unsaved study session
+        close_choice = messagebox.askyesnocancel(
+            "Ulagret økt",
+            (
+                f"Du har en ulagret økt på {format_time(elapsed_seconds)}.\n\n"
+                "Ja = lagre økten\n"
+                "Nei = kast økten\n"
+                "Avbryt = gå tilbake til appen"
+            )
+        )  # Ask what should happen to the unfinished session
+
+        if close_choice is None:
+            return  # Cancel the closing process and return to the application
+
+        if timer_running:
+            stop_timer()  # Stop the timer before saving or discarding the session
+
+        if close_choice:
+            save_session()  # Save the study session if the user chose Yes
+        else:
+            discard_session()  # Discard the study session if the user chose No
+
+    # Save the current application preferences before closing
+    app_settings["selected_subject_id"] = current_subject_id
+    app_settings["view_expanded"] = view_expanded
+
+    app_settings["window_x"] = window.winfo_x()
+    app_settings["window_y"] = window.winfo_y()
+
+    save_settings(app_settings)  # Save the application preferences permanently
+
+    window.destroy()  # Close the application window
+    
+
 def show_compact_view():  # Function to switch the application to compact mode
     global view_expanded  # Access the variable that tracks the current view
 
@@ -467,16 +502,6 @@ def toggle_view():  # Function to switch between compact and expanded mode
         show_expanded_view()  # Switch to expanded mode
 
 
-def close_application():  # Function to save application state before closing
-    app_settings["selected_subject_id"] = current_subject_id  # Remember the selected subject
-    app_settings["view_expanded"] = view_expanded  # Remember the current interface mode
-
-    app_settings["window_x"] = window.winfo_x()  # Save the window's horizontal position
-    app_settings["window_y"] = window.winfo_y()  # Save the window's vertical position
-
-    save_settings(app_settings)  # Permanently save the application settings
-
-    window.destroy()  # Close the application window
     
 
 app_data = load_data()  # Load saved application data
@@ -501,6 +526,7 @@ else:
 window = tk.Tk()  # Create the main application window
 
 window.title("Study Timer")  # Set the application window title
+
 
 window.protocol(
     "WM_DELETE_WINDOW",
