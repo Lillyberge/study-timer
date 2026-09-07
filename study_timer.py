@@ -3,6 +3,7 @@ from tkinter import ttk  # Import ttk for more modern-looking interface elements
 from datetime import datetime  # Import datetime so we can save the date of each study session
 from tkinter import messagebox, simpledialog  # Import popup windows for messages and text input
 from uuid import uuid4  # Import uuid4 so every new subject gets a unique ID
+from time import monotonic  # Import a reliable clock for measuring elapsed time
 
 
 from data_manager import (
@@ -28,8 +29,10 @@ EXPANDED_GEOMETRY = "560x590"  # Size of the window when the extra controls are 
 elapsed_seconds = 0  # Seconds recorded in the current study session
 timer_running = False  # Variable to track whether the timer is running
 timer_job = None  # Variable to remember the scheduled timer update
+segment_start_time = None  # Time when the current running part of the session started
 current_subject_id = None  # ID of the subject currently selected
 view_expanded = False  # Variable to track whether the extended interface is visible
+
 
 
 def format_time(seconds):  # Function to format seconds into HH:MM:SS
@@ -45,6 +48,17 @@ def format_hours_minutes(seconds):  # Function to format seconds for statistics
     minutes = (seconds % 3600) // 60  # Calculate remaining minutes
 
     return f"{hours} t {minutes:02} min"  # Return readable hours-and-minutes text
+
+
+def get_current_elapsed_seconds():  # Function to calculate the complete current session time
+    if timer_running and segment_start_time is not None:
+        running_seconds = int(
+            monotonic() - segment_start_time
+        )  # Calculate how long the current running segment has lasted
+
+        return elapsed_seconds + running_seconds  # Combine saved session time and current running time
+
+    return elapsed_seconds  # Return accumulated time when the timer is paused
 
 
 def get_current_subject():  # Function to get the currently selected subject
@@ -326,28 +340,29 @@ def archive_subject():  # Function to archive the selected subject
     update_statistics()  # Update statistics
 
 
-def update_timer():  # Function to update the timer every second
-    global elapsed_seconds  # Access elapsed seconds
+def update_timer():  # Function to refresh the visible timer
     global timer_job  # Access the scheduled timer job
 
-    if timer_running:  # Only update while the timer is running
-        elapsed_seconds += 1  # Add one second
+    if timer_running:
+        current_seconds = get_current_elapsed_seconds()  # Calculate the real elapsed session time
 
         timer_label.config(
-            text=format_time(elapsed_seconds)
-        )  # Update the visible timer
+            text=format_time(current_seconds)
+        )  # Display the current session time
 
         timer_job = window.after(
-            1000,
+            250,
             update_timer
-        )  # Schedule another update after one second
+        )  # Refresh the display again shortly
 
 
 def start_timer():  # Function to start or resume the timer
     global timer_running  # Access timer state
     global timer_job  # Access scheduled timer job
+    global segment_start_time # Access the start time of the current running segment    
 
     if not timer_running:  # Make sure the timer is not already running
+        segment_start_time = monotonic()  # Remember exactly when this running segment started
         timer_running = True  # Start the timer
 
         start_button.config(state="disabled")  # Disable Start
@@ -363,10 +378,18 @@ def start_timer():  # Function to start or resume the timer
 
 
 def stop_timer():  # Function to pause the timer
-    global timer_running  # Access timer state
-    global timer_job  # Access scheduled timer job
+    global elapsed_seconds # Access the accumulated session time
+    global timer_running # Access timer state
+    global timer_job # Access scheduled timer job
+    global segment_start_time # Access the start time of the current running segment
+
+    if timer_running and segment_start_time is not None:
+        elapsed_seconds += int(
+            monotonic() - segment_start_time
+        )  # Add the current running segment to the accumulated session time
 
     timer_running = False  # Pause the timer
+    segment_start_time = None  # Clear the start time because the timer is no longer running
 
     if timer_job is not None:  # Check if an update is scheduled
         window.after_cancel(timer_job)  # Cancel the scheduled update
@@ -406,9 +429,11 @@ def discard_session():  # Function to discard the current session
 
 
 def reset_session():  # Function to reset the current study session
-    global elapsed_seconds  # Access current elapsed seconds
+    global elapsed_seconds
+    global segment_start_time
 
-    elapsed_seconds = 0  # Reset session time
+    elapsed_seconds = 0  # Reset accumulated session time
+    segment_start_time = None  # Clear any previous timer start time
 
     timer_label.config(text="00:00:00")  # Reset timer display
     session_label.config(text="")  # Remove paused session text
@@ -424,7 +449,7 @@ def close_application():  # Function to safely save state and close the applicat
         close_choice = messagebox.askyesnocancel(
             "Ulagret økt",
             (
-                f"Du har en ulagret økt på {format_time(elapsed_seconds)}.\n\n"
+                f"Du har en ulagret økt på {format_time(get_current_elapsed_seconds())}.\n\n"
                 "Ja = lagre økten\n"
                 "Nei = kast økten\n"
                 "Avbryt = gå tilbake til appen"
