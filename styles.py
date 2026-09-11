@@ -5,11 +5,11 @@ from tkinter import ttk  # Import ttk so we can configure the application's visu
 # COLORS
 # -----------------------------
 
-BACKGROUND_COLOR = "#BFE4FF"  # Light blue application background
+BACKGROUND_COLOR = "#EEEEEE"  # Light grey application background
 CARD_COLOR = "#FFFFFF"  # White background used for cards
 
-TEXT_COLOR = "#243447"  # Main dark text color
-MUTED_TEXT_COLOR = "#6B7C93"  # Softer text color for secondary information
+TEXT_COLOR = "#404346"  # Main dark text color
+MUTED_TEXT_COLOR = "#83878E"  # Softer text color for secondary information
 
 BUTTON_COLOR = "#F7C6D9"  # Light pink default button color
 BUTTON_HOVER_COLOR = "#E88FAF"  # Darker pink when hovering over a button

@@ -22,8 +22,8 @@ from styles import configure_styles  # Import the application's visual style con
 
 MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 
-COMPACT_GEOMETRY = "560x380"  # Size of the window in compact mode
-EXPANDED_GEOMETRY = "560x590"  # Size of the window when the extra controls are visible
+COMPACT_GEOMETRY = "450x380"  # Size of the window in compact mode
+EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are visible
 
 
 elapsed_seconds = 0  # Seconds recorded in the current study session
@@ -141,14 +141,22 @@ def update_statistics():  # Function to update weekly and all-time statistics
 
 
 def refresh_subject_buttons():  # Function to rebuild the subject buttons
-    for widget in subject_buttons_frame.winfo_children():  # Go through existing buttons
-        widget.destroy()  # Remove each old subject button
+    for widget in subject_buttons_frame.winfo_children():
+        widget.destroy()  # Remove old subject buttons
 
-    for subject in get_active_subjects(app_data):  # Create a button for every active subject
+    active_subjects = get_active_subjects(app_data)  # Get all active subjects
+
+    for column_index in range(len(active_subjects)):
+        subject_buttons_frame.columnconfigure(
+            column_index,
+            weight=1
+        )  # Make every possible subject column use equal space
+
+    for column_index, subject in enumerate(active_subjects):
         if subject["id"] == current_subject_id:
-            button_style = "SelectedSubject.TButton"  # Use highlighted style for selected subject
+            button_style = "SelectedSubject.TButton"
         else:
-            button_style = "Subject.TButton"  # Use normal style for other subjects
+            button_style = "Subject.TButton"
 
         button = ttk.Button(
             subject_buttons_frame,
@@ -157,11 +165,13 @@ def refresh_subject_buttons():  # Function to rebuild the subject buttons
             style=button_style
         )  # Create the subject button
 
-        button.pack(
-            side="left",
+        button.grid(
+            row=0,
+            column=column_index,
+            sticky="ew",
             padx=4,
             pady=4
-        )  # Add the subject button to the subject selector
+        )  # Give each subject button an equal-width column
 
 
 def select_subject(subject_id):  # Function to switch to another subject
@@ -480,51 +490,45 @@ def close_application():  # Function to safely save state and close the applicat
     
 
 def show_compact_view():  # Function to switch the application to compact mode
-    global view_expanded  # Access the variable that tracks the current view
+    global view_expanded
 
-    view_expanded = False  # Remember that the application is now compact
-    
-    app_settings["view_expanded"] = False  # Remember that compact mode is selected
-    save_settings(app_settings)  # Save the view preference
+    view_expanded = False
 
-    expanded_content_frame.pack_forget()  # Hide subject management and detailed statistics
+    app_settings["view_expanded"] = False
+    save_settings(app_settings)
 
-    toggle_view_button.config(
-        text="VIS MER ↓"
-    )  # Change the button text so the user can expand the application again
+    expanded_content_frame.pack_forget()  # Hide the expanded controls and statistics
+
+    expand_view_button.pack(
+        anchor="e",
+        pady=(6, 8)
+    )  # Show the button used to expand the application
 
     window.geometry(
         COMPACT_GEOMETRY
-    )  # Resize the application to the compact window size
+    )
 
 
 def show_expanded_view():  # Function to show the full application interface
-    global view_expanded  # Access the variable that tracks the current view
+    global view_expanded
 
-    view_expanded = True  # Remember that the extended interface is visible
-    
-    app_settings["view_expanded"] = True  # Remember that expanded mode is selected
-    save_settings(app_settings)  # Save the view preference
+    view_expanded = True
+
+    app_settings["view_expanded"] = True
+    save_settings(app_settings)
+
+    expand_view_button.pack_forget()  # Hide the compact-mode expand button
 
     expanded_content_frame.pack(
         fill="both",
         expand=True
     )  # Show subject management and detailed statistics
 
-    toggle_view_button.config(
-        text="VIS MINDRE ↑"
-    )  # Change the button text so the user can collapse the application
-
     window.geometry(
         EXPANDED_GEOMETRY
-    )  # Resize the application to the larger window size
+    )
 
 
-def toggle_view():  # Function to switch between compact and expanded mode
-    if view_expanded:  # Check if the extended interface is currently visible
-        show_compact_view()  # Switch to compact mode
-    else:
-        show_expanded_view()  # Switch to expanded mode
 
 
     
@@ -559,7 +563,7 @@ window.protocol(
 )  # Run close_application when the user closes the window
 
 
-window.minsize(520, 300)  # Allow the compact window to stay small
+window.minsize(420, 300)  # Allow the compact window to stay small
 
 configure_styles(window)  # Apply the application's styles to the window and ttk widgets
 
@@ -618,9 +622,9 @@ subject_buttons_frame = ttk.Frame(
 )  # Create a frame containing subject buttons
 
 subject_buttons_frame.pack(
-    anchor="w",
+    fill="x",
     pady=(4, 14)
-)
+)  # Make the subject button area use the full available width
 
 
 # -----------------------------
@@ -676,7 +680,7 @@ start_button = ttk.Button(
 
 start_button.pack(
     side="left",
-    padx=5
+    padx=3
 )
 
 
@@ -690,7 +694,7 @@ stop_button = ttk.Button(
 
 stop_button.pack(
     side="left",
-    padx=5
+    padx=3
 )
 
 
@@ -720,7 +724,7 @@ save_button = ttk.Button(
 
 save_button.pack(
     side="left",
-    padx=5
+    padx=3
 )
 
 
@@ -733,7 +737,7 @@ discard_button = ttk.Button(
 
 discard_button.pack(
     side="left",
-    padx=5
+    padx=3
 )
 
 
@@ -752,17 +756,18 @@ total_label.pack(
 # VIEW CONTROLS
 # -----------------------------
 
-toggle_view_button = ttk.Button(
+expand_view_button = ttk.Button(
     main_frame,
     text="VIS MER ↓",
-    command=toggle_view,
+    command=show_expanded_view,
     style="Secondary.TButton"
-)  # Create a button for switching between compact and expanded mode
+)  # Button used to open the expanded interface
 
-toggle_view_button.pack(
+expand_view_button.pack(
     anchor="e",
     pady=(6, 8)
-)  # Place the view button on the right side
+)
+
 
 
 expanded_content_frame = ttk.Frame(
@@ -808,7 +813,7 @@ rename_subject_button = ttk.Button(
 
 rename_subject_button.pack(
     side="left",
-    padx=5
+    padx=3
 )
 
 
@@ -821,7 +826,20 @@ archive_subject_button = ttk.Button(
 
 archive_subject_button.pack(
     side="left",
-    padx=5
+    padx=3
+)
+
+
+collapse_view_button = ttk.Button(
+    management_frame,
+    text="VIS MINDRE ↑",
+    command=show_compact_view,
+    style="Secondary.TButton"
+)  # Button used to return to compact mode
+
+collapse_view_button.pack(
+    side="right",
+    padx=(8, 0)
 )
 
 
