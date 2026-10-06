@@ -1,4 +1,5 @@
 import json  # Import JSON so we can save and load study data
+import os  # Import os so files can be replaced safely
 from datetime import date, timedelta  # Import date tools for weekly calculations
 from pathlib import Path  # Import Path to work with file paths
 
@@ -6,14 +7,25 @@ from pathlib import Path  # Import Path to work with file paths
 DATA_FILE = Path(__file__).with_name("study_data.json")  # Location of the file where study data is stored
 
 
-def write_data(data):  # Function to write application data to the JSON file
-    with DATA_FILE.open("w", encoding="utf-8") as file:
+def write_json_safely(file_path, data):  # Function to write JSON without risking a half-written file
+    temporary_path = file_path.with_suffix(".tmp")  # Write to a temporary file first
+
+    with temporary_path.open("w", encoding="utf-8") as file:
         json.dump(
             data,
             file,
             indent=4,
             ensure_ascii=False
         )  # Save the data in a readable JSON format
+
+        file.flush()  # Push the data out of Python's buffer
+        os.fsync(file.fileno())  # Make sure the data is physically written to disk
+
+    os.replace(temporary_path, file_path)  # Swap in the new file in one step, so the old file is never left half-written
+
+
+def write_data(data):  # Function to write application data to the JSON file
+    write_json_safely(DATA_FILE, data)  # Save the data safely
 
 
 def create_default_data():  # Function to create starting data for a new user
