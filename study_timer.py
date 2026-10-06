@@ -26,7 +26,7 @@ COMPACT_GEOMETRY = "450x380"  # Size of the window in compact mode
 EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are visible
 
 
-elapsed_seconds = 0  # Seconds recorded in the current study session
+elapsed_seconds = 0.0  # Seconds recorded in the current study session (kept as a decimal number so no time is lost when pausing)
 timer_running = False  # Variable to track whether the timer is running
 timer_job = None  # Variable to remember the scheduled timer update
 segment_start_time = None  # Time when the current running part of the session started
@@ -36,6 +36,8 @@ view_expanded = False  # Variable to track whether the extended interface is vis
 
 
 def format_time(seconds):  # Function to format seconds into HH:MM:SS
+    seconds = int(seconds)  # Ignore fractions of a second in the display
+
     hours = seconds // 3600  # Calculate whole hours
     minutes = (seconds % 3600) // 60  # Calculate remaining whole minutes
     secs = seconds % 60  # Calculate remaining seconds
@@ -52,13 +54,11 @@ def format_hours_minutes(seconds):  # Function to format seconds for statistics
 
 def get_current_elapsed_seconds():  # Function to calculate the complete current session time
     if timer_running and segment_start_time is not None:
-        running_seconds = int(
-            monotonic() - segment_start_time
-        )  # Calculate how long the current running segment has lasted
+        running_seconds = monotonic() - segment_start_time  # Calculate how long the current running segment has lasted
 
-        return elapsed_seconds + running_seconds  # Combine saved session time and current running time
+        return int(elapsed_seconds + running_seconds)  # Combine saved session time and current running time
 
-    return elapsed_seconds  # Return accumulated time when the timer is paused
+    return int(elapsed_seconds)  # Return accumulated time when the timer is paused
 
 
 def get_current_subject():  # Function to get the currently selected subject
@@ -381,10 +381,7 @@ def start_timer():  # Function to start or resume the timer
         session_label.config(text="")  # Hide paused session text
         decision_frame.pack_forget()  # Hide Save and Discard buttons
 
-        timer_job = window.after(
-            1000,
-            update_timer
-        )  # Schedule the first timer update
+        update_timer()  # Update the display right away and keep updating it
 
 
 def stop_timer():  # Function to pause the timer
@@ -394,9 +391,7 @@ def stop_timer():  # Function to pause the timer
     global segment_start_time # Access the start time of the current running segment
 
     if timer_running and segment_start_time is not None:
-        elapsed_seconds += int(
-            monotonic() - segment_start_time
-        )  # Add the current running segment to the accumulated session time
+        elapsed_seconds += monotonic() - segment_start_time  # Add the current running segment to the accumulated session time
 
     timer_running = False  # Pause the timer
     segment_start_time = None  # Clear the start time because the timer is no longer running
@@ -418,11 +413,11 @@ def stop_timer():  # Function to pause the timer
 def save_session():  # Function to permanently save the current session
     global elapsed_seconds  # Access current session time
 
-    if elapsed_seconds > 0:  # Only save sessions longer than zero seconds
+    if int(elapsed_seconds) > 0:  # Only save sessions of at least one whole second
         new_session = {
             "subject_id": current_subject_id,
             "date": datetime.now().date().isoformat(),
-            "duration_seconds": elapsed_seconds
+            "duration_seconds": int(elapsed_seconds)
         }  # Create a study session
 
         app_data["sessions"].append(new_session)  # Add the session to application data
@@ -442,7 +437,7 @@ def reset_session():  # Function to reset the current study session
     global elapsed_seconds
     global segment_start_time
 
-    elapsed_seconds = 0  # Reset accumulated session time
+    elapsed_seconds = 0.0  # Reset accumulated session time
     segment_start_time = None  # Clear any previous timer start time
 
     timer_label.config(text="00:00:00")  # Reset timer display
@@ -975,7 +970,15 @@ saved_x = app_settings["window_x"]  # Get the previously saved horizontal window
 saved_y = app_settings["window_y"]  # Get the previously saved vertical window position
 
 
-if saved_x is not None and saved_y is not None:
+window_position_is_visible = (
+    saved_x is not None
+    and saved_y is not None
+    and 0 <= saved_x < window.winfo_screenwidth() - 100
+    and 0 <= saved_y < window.winfo_screenheight() - 100
+)  # Only restore the position if the window would still be on screen (e.g. not after unplugging a second monitor)
+
+
+if window_position_is_visible:
     current_geometry = EXPANDED_GEOMETRY if view_expanded else COMPACT_GEOMETRY
 
     window.geometry(
