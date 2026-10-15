@@ -9,9 +9,12 @@ from time import monotonic  # Import a reliable clock for measuring elapsed time
 from data_manager import (
     calculate_total_logged_seconds,
     calculate_weekly_logged_seconds,
+    clear_active_session,
     get_active_subjects,
     get_subject_by_id,
+    load_active_session,
     load_data,
+    save_active_session,
     save_data
 )  # Import data functions from our own data_manager module
 
@@ -22,6 +25,8 @@ from styles import configure_styles  # Import the application's visual style con
 
 MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 
+AUTOSAVE_INTERVAL_MS = 30000  # How often the unfinished session is backed up while the timer runs (30 seconds)
+
 COMPACT_GEOMETRY = "450x380"  # Size of the window in compact mode
 EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are visible
 
@@ -29,6 +34,7 @@ EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are 
 elapsed_seconds = 0.0  # Seconds recorded in the current study session (kept as a decimal number so no time is lost when pausing)
 timer_running = False  # Variable to track whether the timer is running
 timer_job = None  # Variable to remember the scheduled timer update
+autosave_job = None  # Variable to remember the scheduled backup of the unfinished session
 segment_start_time = None  # Time when the current running part of the session started
 current_subject_id = None  # ID of the subject currently selected
 view_expanded = False  # Variable to track whether the extended interface is visible
@@ -366,6 +372,21 @@ def update_timer():  # Function to refresh the visible timer
         )  # Refresh the display again shortly
 
 
+def autosave_session():  # Function to back up the unfinished session regularly while the timer runs
+    global autosave_job
+
+    save_active_session(
+        current_subject_id,
+        get_current_elapsed_seconds()
+    )  # Save how far the session has come, in case the app crashes
+
+    if timer_running:
+        autosave_job = window.after(
+            AUTOSAVE_INTERVAL_MS,
+            autosave_session
+        )  # Schedule the next backup
+
+
 def start_timer():  # Function to start or resume the timer
     global timer_running  # Access timer state
     global timer_job  # Access scheduled timer job
@@ -382,12 +403,14 @@ def start_timer():  # Function to start or resume the timer
         decision_frame.pack_forget()  # Hide Save and Discard buttons
 
         update_timer()  # Update the display right away and keep updating it
+        autosave_session()  # Start backing up the session regularly
 
 
 def stop_timer():  # Function to pause the timer
     global elapsed_seconds # Access the accumulated session time
     global timer_running # Access timer state
     global timer_job # Access scheduled timer job
+    global autosave_job # Access scheduled backup job
     global segment_start_time # Access the start time of the current running segment
 
     if timer_running and segment_start_time is not None:
@@ -399,6 +422,15 @@ def stop_timer():  # Function to pause the timer
     if timer_job is not None:  # Check if an update is scheduled
         window.after_cancel(timer_job)  # Cancel the scheduled update
         timer_job = None  # Clear the scheduled job
+
+    if autosave_job is not None:  # Check if a backup is scheduled
+        window.after_cancel(autosave_job)  # Cancel the scheduled backup
+        autosave_job = None  # Clear the scheduled backup
+
+    save_active_session(
+        current_subject_id,
+        elapsed_seconds
+    )  # Back up the paused session, since it is not saved yet
 
     start_button.config(state="normal")  # Allow the user to resume
     stop_button.config(state="disabled")  # Disable Stop
@@ -439,6 +471,8 @@ def reset_session():  # Function to reset the current study session
 
     elapsed_seconds = 0.0  # Reset accumulated session time
     segment_start_time = None  # Clear any previous timer start time
+
+    clear_active_session()  # The session is saved or discarded, so the backup is no longer needed
 
     timer_label.config(text="00:00:00")  # Reset timer display
     session_label.config(text="")  # Remove paused session text
@@ -483,6 +517,46 @@ def close_application():  # Function to safely save state and close the applicat
 
     window.destroy()  # Close the application window
     
+
+def recover_unfinished_session():  # Function to offer saving a session that was left unfinished after a crash
+    unfinished_session = load_active_session()  # Look for a backup from last time
+
+    if unfinished_session is None:  # Stop if there is nothing to recover
+        return
+
+    subject = get_subject_by_id(
+        app_data,
+        unfinished_session.get("subject_id")
+    )  # Find the subject the session belonged to
+
+    duration_seconds = unfinished_session.get("duration_seconds", 0)  # Get how long the session lasted
+
+    if subject is not None and duration_seconds > 0:
+        should_save = messagebox.askyesno(
+            "Uavsluttet økt",
+            (
+                f'Du har en uavsluttet økt på {format_time(duration_seconds)} '
+                f'i {subject["name"]}.\n\n'
+                "Vil du lagre den?"
+            )
+        )  # Ask whether the unfinished session should be kept
+
+        if should_save:
+            app_data["sessions"].append(
+                {
+                    "subject_id": subject["id"],
+                    "date": unfinished_session["date"],
+                    "duration_seconds": duration_seconds
+                }
+            )  # Add the recovered session using the day it actually happened
+
+            save_data(app_data)  # Save the recovered session permanently
+
+            update_subject_display()  # Update subject total
+            update_statistics()  # Update statistics
+
+    clear_active_session()  # Remove the backup so the question is not asked again
+
 
 def show_compact_view():  # Function to switch the application to compact mode
     global view_expanded
@@ -984,6 +1058,12 @@ if window_position_is_visible:
     window.geometry(
         f"{current_geometry}+{saved_x}+{saved_y}"
     )  # Restore both the window size and its previous screen position
+
+
+window.after(
+    100,
+    recover_unfinished_session
+)  # Check for an unfinished session once the window is visible
 
 
 window.mainloop()  # Start the Tkinter event loop and keep the application running
