@@ -21,6 +21,7 @@ from data_manager import (
 
 from settings_manager import load_settings, save_settings  # Import functions for saving application preferences
 from styles import BACKGROUND_COLOR, configure_styles  # Import the application's visual style configuration
+from statistics_page import StatisticsPage  # Import the page with the detailed statistics
 
 
 
@@ -38,7 +39,6 @@ timer_job = None  # Variable to remember the scheduled timer update
 autosave_job = None  # Variable to remember the scheduled backup of the unfinished session
 segment_start_time = None  # Time when the current running part of the session started
 current_subject_id = None  # ID of the subject currently selected
-view_expanded = False  # Variable to track whether the extended interface is visible
 
 
 
@@ -537,7 +537,6 @@ def close_application():  # Function to safely save state and close the applicat
 
     # Save the current application preferences before closing
     app_settings["selected_subject_id"] = current_subject_id
-    app_settings["view_expanded"] = view_expanded
 
     app_settings["window_x"] = window.winfo_x()
     app_settings["window_y"] = window.winfo_y()
@@ -590,24 +589,6 @@ def recover_unfinished_session():  # Function to offer saving a session that was
     clear_active_session()  # Remove the backup so the question is not asked again
 
 
-def show_compact_view():  # Function to switch the application to compact mode
-    global view_expanded
-
-    view_expanded = False
-
-    app_settings["view_expanded"] = False
-    save_settings(app_settings)
-
-    expanded_content_frame.pack_forget()  # Hide the expanded controls and statistics
-
-    expand_view_button.pack(
-        anchor="e",
-        pady=(6, 8)
-    )  # Show the button used to expand the application
-
-    fit_window_to_content()  # Make the window just tall enough for the compact view
-
-
 def fit_window_to_content():  # Function to make the window exactly as tall as its content
     window.update_idletasks()  # Let Tkinter calculate the size of all widgets first
 
@@ -657,27 +638,29 @@ def scroll_with_mouse_wheel(event):  # Function to scroll with the mouse wheel o
     )  # Move the content a small step
 
 
-def show_expanded_view():  # Function to show the full application interface
-    global view_expanded
+def show_statistics_page():  # Function to open the statistics page
+    main_page_frame.pack_forget()  # Hide the timer page
 
-    view_expanded = True
+    statistics_page.refresh()  # Recalculate the statistics with the newest data
 
-    app_settings["view_expanded"] = True
-    save_settings(app_settings)
-
-    expand_view_button.pack_forget()  # Hide the compact-mode expand button
-
-    expanded_content_frame.pack(
+    statistics_page.frame.pack(
         fill="both",
         expand=True
-    )  # Show subject management and detailed statistics
+    )  # Show the statistics page
 
-    fit_window_to_content()  # Make the window tall enough for everything in expanded mode
-
-
+    scroll_canvas.yview_moveto(0)  # Start at the top of the page
 
 
-    
+def show_main_page():  # Function to go back to the timer page
+    statistics_page.frame.pack_forget()  # Hide the statistics page
+
+    main_page_frame.pack(
+        fill="both",
+        expand=True
+    )  # Show the timer page
+
+    scroll_canvas.yview_moveto(0)  # Start at the top of the page
+
 
 app_data = load_data()  # Load saved application data
 
@@ -790,13 +773,24 @@ title_label.pack(
 )  # Place the title on the left
 
 
+main_page_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Container for the timer page (it is hidden while the statistics page is open)
+
+main_page_frame.pack(
+    fill="both",
+    expand=True
+)
+
+
 
 # -----------------------------
 # SUBJECT SELECTOR
 # -----------------------------
 
 subjects_title_label = ttk.Label(
-    main_frame,
+    main_page_frame,
     text="FAG",
     style="Section.TLabel"
 )  # Create the subject section heading
@@ -807,7 +801,7 @@ subjects_title_label.pack(
 
 
 subject_buttons_frame = ttk.Frame(
-    main_frame,
+    main_page_frame,
     style="App.TFrame"
 )  # Create a frame containing subject buttons
 
@@ -822,7 +816,7 @@ subject_buttons_frame.pack(
 # -----------------------------
 
 timer_card = ttk.Frame(
-    main_frame,
+    main_page_frame,
     style="Card.TFrame",
     padding=10
 )  # Create the main timer card
@@ -953,28 +947,28 @@ today_label.pack(
 )
 
 
-# -----------------------------
-# VIEW CONTROLS
-# -----------------------------
-
-expand_view_button = ttk.Button(
-    main_frame,
-    text="VIS MER ↓",
-    command=show_expanded_view,
+statistics_button = ttk.Button(
+    main_page_frame,
+    text="STATISTIKK →",
+    command=show_statistics_page,
     style="Secondary.TButton"
-)  # Button used to open the expanded interface
+)  # Button that opens the statistics page
 
-expand_view_button.pack(
+statistics_button.pack(
     anchor="e",
-    pady=(6, 8)
-)
+    pady=(0, 12)
+)  # Place it on the right, just below the timer card
 
 
-
-expanded_content_frame = ttk.Frame(
-    main_frame,
+overview_frame = ttk.Frame(
+    main_page_frame,
     style="App.TFrame"
-)  # Create one container for everything that should only appear in expanded mode
+)  # Create one container for subject management and the statistics overview
+
+overview_frame.pack(
+    fill="both",
+    expand=True
+)
 
 
 # -----------------------------
@@ -982,7 +976,7 @@ expanded_content_frame = ttk.Frame(
 # -----------------------------
 
 management_frame = ttk.Frame(
-    expanded_content_frame,
+    overview_frame,
     style="App.TFrame"
 )  # Create a frame for subject management controls
 
@@ -1031,25 +1025,12 @@ archive_subject_button.pack(
 )
 
 
-collapse_view_button = ttk.Button(
-    management_frame,
-    text="VIS MINDRE ↑",
-    command=show_compact_view,
-    style="Secondary.TButton"
-)  # Button used to return to compact mode
-
-collapse_view_button.pack(
-    side="right",
-    padx=(8, 0)
-)
-
-
 # -----------------------------
 # STATISTICS
 # -----------------------------
 
 statistics_title_label = ttk.Label(
-    expanded_content_frame,
+    overview_frame,
     text="PROGRESJON",
     style="Section.TLabel"
 )  # Create the statistics section heading
@@ -1061,7 +1042,7 @@ statistics_title_label.pack(
 
 
 statistics_frame = ttk.Frame(
-    expanded_content_frame,
+    overview_frame,
     style="App.TFrame"
 )  # Create the container for both statistics cards
 
@@ -1205,10 +1186,13 @@ refresh_subject_buttons()  # Create subject buttons when the application starts
 update_subject_display()  # Display the selected subject and its saved total
 update_statistics()  # Prepare weekly and all-time statistics
 
-if app_settings["view_expanded"]:
-    show_expanded_view()  # Restore expanded mode if it was used last
-else:
-    show_compact_view()  # Otherwise start in compact mode
+statistics_page = StatisticsPage(
+    main_frame,
+    app_data,
+    show_main_page
+)  # Create the statistics page (it is shown when the STATISTIKK button is pressed)
+
+fit_window_to_content()  # Make the window just tall enough for its content
     
     
 saved_x = app_settings["window_x"]  # Get the previously saved horizontal window position

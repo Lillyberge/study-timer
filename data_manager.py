@@ -203,3 +203,29 @@ def load_active_session():  # Function to find an unfinished session left behind
 
 def clear_active_session():  # Function to remove the backup once the session is saved or discarded
     ACTIVE_SESSION_FILE.unlink(missing_ok=True)  # Delete the backup file if it exists
+
+
+def get_first_session_date(app_data):  # Function to find the date of the very first study session
+    if not app_data["sessions"]:  # Check if there are no sessions yet
+        return None
+
+    return min(
+        date.fromisoformat(session["date"])
+        for session in app_data["sessions"]
+    )  # Return the earliest session date
+
+
+def calculate_daily_totals_by_subject(app_data):  # Function to sum up study time per day and per subject
+    daily_totals = {}  # Dictionary like {date: {subject_id: seconds}}
+
+    for session in app_data["sessions"]:  # Go through every saved study session
+        session_date = date.fromisoformat(session["date"])  # Convert the saved date text into a Python date
+
+        subjects_that_day = daily_totals.setdefault(session_date, {})  # Get (or create) the totals for that day
+
+        subjects_that_day[session["subject_id"]] = (
+            subjects_that_day.get(session["subject_id"], 0)
+            + session["duration_seconds"]
+        )  # Add the session time to the right subject on the right day
+
+    return daily_totals  # Return all daily totals
