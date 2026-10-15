@@ -142,6 +142,18 @@ def calculate_total_logged_seconds(app_data, subject_id):  # Function to calcula
     return total_seconds  # Return the calculated total
 
 
+def calculate_daily_logged_seconds(app_data, subject_id):  # Function to calculate today's study time for one subject
+    today = date.today().isoformat()  # Get today's date in the same text format as saved sessions
+
+    total_seconds = 0  # Start the daily total at zero
+
+    for session in app_data["sessions"]:  # Go through every saved study session
+        if session["subject_id"] == subject_id and session["date"] == today:  # Check if the session belongs to this subject and happened today
+            total_seconds += session["duration_seconds"]  # Add the session time
+
+    return total_seconds  # Return today's total
+
+
 def calculate_weekly_logged_seconds(app_data, subject_id):  # Function to calculate this week's study time for one subject
     today = date.today()  # Get today's date
 

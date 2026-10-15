@@ -7,6 +7,7 @@ from time import monotonic  # Import a reliable clock for measuring elapsed time
 
 
 from data_manager import (
+    calculate_daily_logged_seconds,
     calculate_total_logged_seconds,
     calculate_weekly_logged_seconds,
     clear_active_session,
@@ -27,8 +28,8 @@ MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 
 AUTOSAVE_INTERVAL_MS = 30000  # How often the unfinished session is backed up while the timer runs (30 seconds)
 
-COMPACT_GEOMETRY = "450x380"  # Size of the window in compact mode
-EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are visible
+WINDOW_WIDTH = 450  # Width of the window in both modes
+COMPACT_GEOMETRY = f"{WINDOW_WIDTH}x400"  # Size of the window in compact mode
 
 
 elapsed_seconds = 0.0  # Seconds recorded in the current study session (kept as a decimal number so no time is lost when pausing)
@@ -94,15 +95,22 @@ def update_subject_display():  # Function to update the selected subject and its
     )  # Display the selected subject's total study time
 
 
-def update_statistics():  # Function to update weekly and all-time statistics
+def update_statistics():  # Function to update daily, weekly and all-time statistics
+    daily_lines = []  # Text lines for today's overview
     weekly_lines = []  # Text lines for the weekly overview
     total_lines = []  # Text lines for the all-time overview
 
+    daily_grand_total = 0  # Total study time across all subjects today
     weekly_grand_total = 0  # Total study time across all subjects this week
     all_time_grand_total = 0  # Total study time across all subjects since the beginning
 
     for subject in app_data["subjects"]:  # Go through all subjects, including archived ones
         subject_id = subject["id"]  # Get the permanent subject ID
+
+        daily_seconds = calculate_daily_logged_seconds(
+            app_data,
+            subject_id
+        )  # Calculate today's time for the subject
 
         weekly_seconds = calculate_weekly_logged_seconds(
             app_data,
@@ -114,8 +122,14 @@ def update_statistics():  # Function to update weekly and all-time statistics
             subject_id
         )  # Calculate all-time study time for the subject
 
+        daily_grand_total += daily_seconds  # Add to the combined daily total
         weekly_grand_total += weekly_seconds  # Add to the combined weekly total
         all_time_grand_total += total_seconds  # Add to the combined all-time total
+
+        if daily_seconds > 0:  # Only show subjects that have been studied today
+            daily_lines.append(
+                f'{subject["name"]}: {format_hours_minutes(daily_seconds)}'
+            )  # Add the subject to today's overview
 
         if not subject["archived"] or weekly_seconds > 0:
             weekly_lines.append(
@@ -129,6 +143,13 @@ def update_statistics():  # Function to update weekly and all-time statistics
                 f'{subject["name"]}{archived_text}: {format_hours_minutes(total_seconds)}'
             )  # Add the subject to the all-time overview
 
+    if daily_lines:
+        daily_lines.append(
+            f"\nTotalt: {format_hours_minutes(daily_grand_total)}"
+        )  # Add the combined daily total
+    else:
+        daily_lines.append("Ingen økter ennå i dag")  # Show a friendly message before the first session of the day
+
     weekly_lines.append(
         f"\nTotalt: {format_hours_minutes(weekly_grand_total)}"
     )  # Add the combined weekly total
@@ -137,6 +158,14 @@ def update_statistics():  # Function to update weekly and all-time statistics
         f"\nTotalt: {format_hours_minutes(all_time_grand_total)}"
     )  # Add the combined all-time total
 
+    daily_statistics_label.config(
+        text="\n".join(daily_lines)
+    )  # Display today's statistics
+
+    today_label.config(
+        text=f"I dag: {format_hours_minutes(daily_grand_total)}"
+    )  # Display today's total in the timer card, so it is visible in compact mode too
+
     weekly_statistics_label.config(
         text="\n".join(weekly_lines)
     )  # Display the weekly statistics
@@ -144,6 +173,9 @@ def update_statistics():  # Function to update weekly and all-time statistics
     total_statistics_label.config(
         text="\n".join(total_lines)
     )  # Display the all-time statistics
+
+    if view_expanded:
+        fit_expanded_window_to_content()  # Adjust the window height in case today's overview got longer
 
 
 def refresh_subject_buttons():  # Function to rebuild the subject buttons
@@ -578,6 +610,16 @@ def show_compact_view():  # Function to switch the application to compact mode
     )
 
 
+def fit_expanded_window_to_content():  # Function to make the expanded window exactly as tall as its content
+    window.update_idletasks()  # Let Tkinter calculate the size of all widgets first
+
+    content_height = main_frame.winfo_reqheight()  # Height needed to show everything
+
+    window.geometry(
+        f"{WINDOW_WIDTH}x{content_height}"
+    )  # Resize the window, since today's overview grows with the number of subjects studied
+
+
 def show_expanded_view():  # Function to show the full application interface
     global view_expanded
 
@@ -593,9 +635,7 @@ def show_expanded_view():  # Function to show the full application interface
         expand=True
     )  # Show subject management and detailed statistics
 
-    window.geometry(
-        EXPANDED_GEOMETRY
-    )
+    fit_expanded_window_to_content()  # Make the window tall enough for everything in expanded mode
 
 
 
@@ -821,6 +861,17 @@ total_label.pack(
 )
 
 
+today_label = ttk.Label(
+    timer_card,
+    text="",
+    style="MutedCardText.TLabel"
+)  # Create the label showing today's total study time
+
+today_label.pack(
+    pady=(2, 0)
+)
+
+
 # -----------------------------
 # VIEW CONTROLS
 # -----------------------------
@@ -950,6 +1001,45 @@ statistics_frame.columnconfigure(
 )  # Make both statistics columns use equal space
 
 
+daily_frame = ttk.Frame(
+    statistics_frame,
+    style="Card.TFrame",
+    padding=9
+)  # Create the card for today's statistics
+
+daily_frame.grid(
+    row=0,
+    column=0,
+    columnspan=2,
+    sticky="nsew",
+    pady=(0, 12)
+)  # Let today's card use the full width above the other two cards
+
+
+daily_title_label = ttk.Label(
+    daily_frame,
+    text="I DAG",
+    style="StatisticsTitle.TLabel"
+)
+
+daily_title_label.pack(
+    anchor="w",
+    pady=(0, 10)
+)
+
+
+daily_statistics_label = ttk.Label(
+    daily_frame,
+    text="",
+    style="Statistics.TLabel",
+    justify="left"
+)  # Create the text for today's statistics
+
+daily_statistics_label.pack(
+    anchor="w"
+)
+
+
 weekly_frame = ttk.Frame(
     statistics_frame,
     style="Card.TFrame",
@@ -957,7 +1047,7 @@ weekly_frame = ttk.Frame(
 )  # Create the weekly statistics card
 
 weekly_frame.grid(
-    row=0,
+    row=1,
     column=0,
     sticky="nsew",
     padx=(0, 6)
@@ -995,7 +1085,7 @@ all_time_frame = ttk.Frame(
 )  # Create the all-time statistics card
 
 all_time_frame.grid(
-    row=0,
+    row=1,
     column=1,
     sticky="nsew",
     padx=(6, 0)
@@ -1053,11 +1143,9 @@ window_position_is_visible = (
 
 
 if window_position_is_visible:
-    current_geometry = EXPANDED_GEOMETRY if view_expanded else COMPACT_GEOMETRY
-
     window.geometry(
-        f"{current_geometry}+{saved_x}+{saved_y}"
-    )  # Restore both the window size and its previous screen position
+        f"+{saved_x}+{saved_y}"
+    )  # Restore the window's previous screen position (the size is already set by the view mode)
 
 
 window.after(
