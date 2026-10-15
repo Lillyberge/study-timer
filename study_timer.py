@@ -20,7 +20,7 @@ from data_manager import (
 )  # Import data functions from our own data_manager module
 
 from settings_manager import load_settings, save_settings  # Import functions for saving application preferences
-from styles import configure_styles  # Import the application's visual style configuration
+from styles import BACKGROUND_COLOR, configure_styles  # Import the application's visual style configuration
 
 
 
@@ -29,7 +29,7 @@ MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 AUTOSAVE_INTERVAL_MS = 30000  # How often the unfinished session is backed up while the timer runs (30 seconds)
 
 WINDOW_WIDTH = 450  # Width of the window in both modes
-COMPACT_GEOMETRY = f"{WINDOW_WIDTH}x400"  # Size of the window in compact mode
+SCREEN_MARGIN = 120  # Space left free on the screen so the window never gets taller than the screen
 
 
 elapsed_seconds = 0.0  # Seconds recorded in the current study session (kept as a decimal number so no time is lost when pausing)
@@ -173,9 +173,6 @@ def update_statistics():  # Function to update daily, weekly and all-time statis
     total_statistics_label.config(
         text="\n".join(total_lines)
     )  # Display the all-time statistics
-
-    if view_expanded:
-        fit_expanded_window_to_content()  # Adjust the window height in case today's overview got longer
 
 
 def refresh_subject_buttons():  # Function to rebuild the subject buttons
@@ -605,19 +602,64 @@ def show_compact_view():  # Function to switch the application to compact mode
         pady=(6, 8)
     )  # Show the button used to expand the application
 
-    window.geometry(
-        COMPACT_GEOMETRY
-    )
+    fit_window_to_content()  # Make the window just tall enough for the compact view
 
 
-def fit_expanded_window_to_content():  # Function to make the expanded window exactly as tall as its content
+def fit_window_to_content():  # Function to make the window exactly as tall as its content
     window.update_idletasks()  # Let Tkinter calculate the size of all widgets first
 
     content_height = main_frame.winfo_reqheight()  # Height needed to show everything
 
+    max_height = window.winfo_screenheight() - SCREEN_MARGIN  # Never make the window taller than the screen
+
     window.geometry(
-        f"{WINDOW_WIDTH}x{content_height}"
-    )  # Resize the window, since today's overview grows with the number of subjects studied
+        f"{WINDOW_WIDTH}x{min(content_height, max_height)}"
+    )  # Resize the window; if the content doesn't fit, the user can scroll
+
+
+def update_scroll_area(event=None):  # Function to update what can be scrolled when the content or window changes size
+    content_height = main_frame.winfo_reqheight()  # Height of everything in the application
+
+    scroll_canvas.configure(
+        scrollregion=(0, 0, scroll_canvas.winfo_width(), content_height)
+    )  # Tell the canvas how much content there is to scroll through
+
+    if content_height > scroll_canvas.winfo_height():
+        if not scrollbar.winfo_ismapped():
+            scrollbar.pack(
+                side="right",
+                fill="y",
+                before=scroll_canvas
+            )  # Show the scrollbar when the content doesn't fit in the window
+    else:
+        scrollbar.pack_forget()  # Hide the scrollbar when everything fits
+        scroll_canvas.yview_moveto(0)  # Go back to the top
+
+
+def resize_content_width(event):  # Function to make the content as wide as the window
+    scroll_canvas.itemconfigure(
+        content_window,
+        width=event.width
+    )  # Stretch the content to the full width of the canvas
+
+    update_scroll_area()  # The visible area changed, so check if scrolling is needed
+
+
+def scroll_with_mouse_wheel(event):  # Function to scroll with the mouse wheel or trackpad
+    if main_frame.winfo_reqheight() <= scroll_canvas.winfo_height():
+        return  # Do nothing if everything already fits
+
+    if event.num == 4 or event.delta > 0:
+        direction = -1  # Scroll up
+    elif event.num == 5 or event.delta < 0:
+        direction = 1  # Scroll down
+    else:
+        return
+
+    scroll_canvas.yview_scroll(
+        direction,
+        "units"
+    )  # Move the content a small step
 
 
 def show_expanded_view():  # Function to show the full application interface
@@ -635,7 +677,7 @@ def show_expanded_view():  # Function to show the full application interface
         expand=True
     )  # Show subject management and detailed statistics
 
-    fit_expanded_window_to_content()  # Make the window tall enough for everything in expanded mode
+    fit_window_to_content()  # Make the window tall enough for everything in expanded mode
 
 
 
@@ -682,16 +724,70 @@ configure_styles(window)  # Apply the application's styles to the window and ttk
 # MAIN CONTAINER
 # -----------------------------
 
-main_frame = ttk.Frame(
+scroll_canvas = tk.Canvas(
     window,
+    background=BACKGROUND_COLOR,
+    highlightthickness=0,
+    borderwidth=0,
+    width=1,
+    height=1,
+    yscrollincrement=20
+)  # Create a canvas, which makes it possible to scroll the content when the window is small
+
+scrollbar = ttk.Scrollbar(
+    window,
+    orient="vertical",
+    command=scroll_canvas.yview
+)  # Create the scrollbar (it is only shown when the content doesn't fit)
+
+scroll_canvas.configure(
+    yscrollcommand=scrollbar.set
+)  # Connect the canvas and the scrollbar
+
+scroll_canvas.pack(
+    side="left",
+    fill="both",
+    expand=True
+)  # Make the canvas fill the window
+
+
+main_frame = ttk.Frame(
+    scroll_canvas,
     style="App.TFrame",
     padding=12
 )  # Create the main container for everything in the application
 
-main_frame.pack(
-    fill="both",
-    expand=True
-)  # Make the main container fill the window
+content_window = scroll_canvas.create_window(
+    (0, 0),
+    window=main_frame,
+    anchor="nw"
+)  # Place the main container inside the scrollable canvas
+
+
+main_frame.bind(
+    "<Configure>",
+    update_scroll_area
+)  # Update the scroll area when the content changes size
+
+scroll_canvas.bind(
+    "<Configure>",
+    resize_content_width
+)  # Update the content width when the window changes size
+
+window.bind_all(
+    "<MouseWheel>",
+    scroll_with_mouse_wheel
+)  # Scroll with the mouse wheel or trackpad (Mac and Windows)
+
+window.bind_all(
+    "<Button-4>",
+    scroll_with_mouse_wheel
+)  # Scroll up with the mouse wheel (Linux)
+
+window.bind_all(
+    "<Button-5>",
+    scroll_with_mouse_wheel
+)  # Scroll down with the mouse wheel (Linux)
 
 
 # -----------------------------
