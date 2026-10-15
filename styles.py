@@ -204,6 +204,29 @@ def configure_styles(window):  # Function to configure all visual styles used by
     
     
     style.configure(
+        "Toolbar.TButton",
+        font=("Helvetica Neue", 11),
+        padding=(4, 5),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Buttons with less padding, so four of them fit on one row
+
+
+    style.map(
+        "Toolbar.TButton",
+        background=[
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
+        ],
+        foreground=[
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
+        ]
+    )  # Make the row buttons darker when hovering or pressing
+    
+    
+    style.configure(
         "Statistics.TLabel",
         background=CARD_COLOR,
         foreground=TEXT_COLOR,

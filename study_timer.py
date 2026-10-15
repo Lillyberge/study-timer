@@ -947,19 +947,6 @@ today_label.pack(
 )
 
 
-statistics_button = ttk.Button(
-    main_page_frame,
-    text="STATISTIKK →",
-    command=show_statistics_page,
-    style="Secondary.TButton"
-)  # Button that opens the statistics page
-
-statistics_button.pack(
-    anchor="e",
-    pady=(0, 12)
-)  # Place it on the right, just below the timer card
-
-
 overview_frame = ttk.Frame(
     main_page_frame,
     style="App.TFrame"
@@ -981,21 +968,30 @@ management_frame = ttk.Frame(
 )  # Create a frame for subject management controls
 
 management_frame.pack(
-    anchor="w",
+    fill="x",
     pady=(0, 22)
 )
+
+for column_index in range(4):
+    management_frame.columnconfigure(
+        column_index,
+        weight=1,
+        uniform="management_buttons"
+    )  # Give all four buttons the same width, sharing the full row
 
 
 add_subject_button = ttk.Button(
     management_frame,
     text="+ LEGG TIL FAG",
     command=add_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Add Subject button
 
-add_subject_button.pack(
-    side="left",
-    padx=(0, 5)
+add_subject_button.grid(
+    row=0,
+    column=0,
+    sticky="ew",
+    padx=(0, 3)
 )
 
 
@@ -1003,11 +999,13 @@ rename_subject_button = ttk.Button(
     management_frame,
     text="ENDRE NAVN",
     command=rename_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Rename Subject button
 
-rename_subject_button.pack(
-    side="left",
+rename_subject_button.grid(
+    row=0,
+    column=1,
+    sticky="ew",
     padx=3
 )
 
@@ -1016,12 +1014,29 @@ archive_subject_button = ttk.Button(
     management_frame,
     text="FJERN FAG",
     command=archive_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Archive Subject button
 
-archive_subject_button.pack(
-    side="left",
+archive_subject_button.grid(
+    row=0,
+    column=2,
+    sticky="ew",
     padx=3
+)
+
+
+statistics_button = ttk.Button(
+    management_frame,
+    text="STATISTIKK",
+    command=show_statistics_page,
+    style="Toolbar.TButton"
+)  # Button that opens the statistics page
+
+statistics_button.grid(
+    row=0,
+    column=3,
+    sticky="ew",
+    padx=(3, 0)
 )
 
 
