@@ -627,16 +627,8 @@ def update_scroll_area(event=None):  # Function to update what can be scrolled w
         scrollregion=(0, 0, scroll_canvas.winfo_width(), content_height)
     )  # Tell the canvas how much content there is to scroll through
 
-    if content_height > scroll_canvas.winfo_height():
-        if not scrollbar.winfo_ismapped():
-            scrollbar.pack(
-                side="right",
-                fill="y",
-                before=scroll_canvas
-            )  # Show the scrollbar when the content doesn't fit in the window
-    else:
-        scrollbar.pack_forget()  # Hide the scrollbar when everything fits
-        scroll_canvas.yview_moveto(0)  # Go back to the top
+    if content_height <= scroll_canvas.winfo_height():
+        scroll_canvas.yview_moveto(0)  # Go back to the top when everything fits
 
 
 def resize_content_width(event):  # Function to make the content as wide as the window
@@ -735,17 +727,7 @@ scroll_canvas = tk.Canvas(
     width=1,
     height=1,
     yscrollincrement=20
-)  # Create a canvas, which makes it possible to scroll the content when the window is small
-
-scrollbar = ttk.Scrollbar(
-    window,
-    orient="vertical",
-    command=scroll_canvas.yview
-)  # Create the scrollbar (it is only shown when the content doesn't fit)
-
-scroll_canvas.configure(
-    yscrollcommand=scrollbar.set
-)  # Connect the canvas and the scrollbar
+)  # Create a canvas, which makes it possible to scroll the content when the window is small (with the trackpad or mouse wheel, without a visible scrollbar)
 
 scroll_canvas.pack(
     side="left",
