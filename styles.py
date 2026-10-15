@@ -204,6 +204,29 @@ def configure_styles(window):  # Function to configure all visual styles used by
     
     
     style.configure(
+        "Toolbar.TButton",
+        font=("Helvetica Neue", 11),
+        padding=(4, 5),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Buttons with less padding, so four of them fit on one row
+
+
+    style.map(
+        "Toolbar.TButton",
+        background=[
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
+        ],
+        foreground=[
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
+        ]
+    )  # Make the row buttons darker when hovering or pressing
+    
+    
+    style.configure(
         "Statistics.TLabel",
         background=CARD_COLOR,
         foreground=TEXT_COLOR,
@@ -217,3 +240,63 @@ def configure_styles(window):  # Function to configure all visual styles used by
         foreground=TEXT_COLOR,
         font=("Helvetica Neue", 12, "bold")
     )  # Compact title for statistics cards
+
+# -----------------------------
+# STATISTICS PAGE
+# -----------------------------
+
+SUBJECT_COLORS = [
+    "#2a78d6",  # Blue
+    "#eb6834",  # Orange
+    "#1baf7a",  # Aqua
+    "#eda100",  # Yellow
+    "#e87ba4",  # Pink
+    "#008300",  # Green
+    "#6250d6",  # Violet
+    "#e34948"   # Red
+]  # Colors for subjects in the charts, in a fixed order that is easy to tell apart (also for colorblind people)
+
+OTHER_SUBJECT_COLOR = "#898781"  # Grey used if there are more subjects than colors
+
+GRID_COLOR = "#e1e0d9"  # Very light grey for the chart's helper lines
+
+
+def configure_statistics_styles():  # Function to configure the styles used on the statistics page
+    style = ttk.Style()  # Get the ttk Style object
+
+    style.configure(
+        "Hero.TLabel",
+        background=CARD_COLOR,
+        foreground=TEXT_COLOR,
+        font=("Helvetica Neue", 28, "bold")
+    )  # Style for the big number at the top of the statistics page
+
+    style.configure(
+        "Period.TLabel",
+        background=CARD_COLOR,
+        foreground=TEXT_COLOR,
+        font=("Helvetica Neue", 12, "bold")
+    )  # Style for the week shown above the chart
+
+    style.configure(
+        "Navigation.TButton",
+        font=("Helvetica Neue", 12, "bold"),
+        padding=(6, 2),
+        foreground=TEXT_COLOR,
+        background=BUTTON_COLOR
+    )  # Style for the small arrow buttons used to switch weeks
+
+    style.map(
+        "Navigation.TButton",
+        background=[
+            ("disabled", CARD_COLOR),
+            ("pressed", BUTTON_PRESSED_COLOR),
+            ("active", BUTTON_HOVER_COLOR),
+            ("!disabled", BUTTON_COLOR)
+        ],
+        foreground=[
+            ("disabled", "#D0D2D5"),
+            ("pressed", "white"),
+            ("!disabled", TEXT_COLOR)
+        ]
+    )  # Make the arrow buttons fade out when you can't go further

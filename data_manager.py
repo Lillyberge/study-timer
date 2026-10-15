@@ -142,6 +142,18 @@ def calculate_total_logged_seconds(app_data, subject_id):  # Function to calcula
     return total_seconds  # Return the calculated total
 
 
+def calculate_daily_logged_seconds(app_data, subject_id):  # Function to calculate today's study time for one subject
+    today = date.today().isoformat()  # Get today's date in the same text format as saved sessions
+
+    total_seconds = 0  # Start the daily total at zero
+
+    for session in app_data["sessions"]:  # Go through every saved study session
+        if session["subject_id"] == subject_id and session["date"] == today:  # Check if the session belongs to this subject and happened today
+            total_seconds += session["duration_seconds"]  # Add the session time
+
+    return total_seconds  # Return today's total
+
+
 def calculate_weekly_logged_seconds(app_data, subject_id):  # Function to calculate this week's study time for one subject
     today = date.today()  # Get today's date
 
@@ -191,3 +203,29 @@ def load_active_session():  # Function to find an unfinished session left behind
 
 def clear_active_session():  # Function to remove the backup once the session is saved or discarded
     ACTIVE_SESSION_FILE.unlink(missing_ok=True)  # Delete the backup file if it exists
+
+
+def get_first_session_date(app_data):  # Function to find the date of the very first study session
+    if not app_data["sessions"]:  # Check if there are no sessions yet
+        return None
+
+    return min(
+        date.fromisoformat(session["date"])
+        for session in app_data["sessions"]
+    )  # Return the earliest session date
+
+
+def calculate_daily_totals_by_subject(app_data):  # Function to sum up study time per day and per subject
+    daily_totals = {}  # Dictionary like {date: {subject_id: seconds}}
+
+    for session in app_data["sessions"]:  # Go through every saved study session
+        session_date = date.fromisoformat(session["date"])  # Convert the saved date text into a Python date
+
+        subjects_that_day = daily_totals.setdefault(session_date, {})  # Get (or create) the totals for that day
+
+        subjects_that_day[session["subject_id"]] = (
+            subjects_that_day.get(session["subject_id"], 0)
+            + session["duration_seconds"]
+        )  # Add the session time to the right subject on the right day
+
+    return daily_totals  # Return all daily totals

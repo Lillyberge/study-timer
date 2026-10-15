@@ -11,9 +11,10 @@ SETTINGS_FILE = Path(__file__).with_name(
 
 DEFAULT_SETTINGS = {
     "selected_subject_id": None,
-    "view_expanded": False,
     "window_x": None,
-    "window_y": None
+    "window_y": None,
+    "window_width": None,
+    "window_height": None
 }  # Default settings used when the application is opened for the first time
 
 

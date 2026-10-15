@@ -7,6 +7,7 @@ from time import monotonic  # Import a reliable clock for measuring elapsed time
 
 
 from data_manager import (
+    calculate_daily_logged_seconds,
     calculate_total_logged_seconds,
     calculate_weekly_logged_seconds,
     clear_active_session,
@@ -19,7 +20,8 @@ from data_manager import (
 )  # Import data functions from our own data_manager module
 
 from settings_manager import load_settings, save_settings  # Import functions for saving application preferences
-from styles import configure_styles  # Import the application's visual style configuration
+from styles import BACKGROUND_COLOR, configure_styles  # Import the application's visual style configuration
+from statistics_page import StatisticsPage  # Import the page with the detailed statistics
 
 
 
@@ -27,8 +29,8 @@ MAX_ACTIVE_SUBJECTS = 5  # Maximum number of active subjects allowed
 
 AUTOSAVE_INTERVAL_MS = 30000  # How often the unfinished session is backed up while the timer runs (30 seconds)
 
-COMPACT_GEOMETRY = "450x380"  # Size of the window in compact mode
-EXPANDED_GEOMETRY = "450x590"  # Size of the window when the extra controls are visible
+WINDOW_WIDTH = 450  # Width of the window in both modes
+SCREEN_MARGIN = 120  # Space left free on the screen so the window never gets taller than the screen
 
 
 elapsed_seconds = 0.0  # Seconds recorded in the current study session (kept as a decimal number so no time is lost when pausing)
@@ -37,7 +39,6 @@ timer_job = None  # Variable to remember the scheduled timer update
 autosave_job = None  # Variable to remember the scheduled backup of the unfinished session
 segment_start_time = None  # Time when the current running part of the session started
 current_subject_id = None  # ID of the subject currently selected
-view_expanded = False  # Variable to track whether the extended interface is visible
 
 
 
@@ -94,15 +95,22 @@ def update_subject_display():  # Function to update the selected subject and its
     )  # Display the selected subject's total study time
 
 
-def update_statistics():  # Function to update weekly and all-time statistics
+def update_statistics():  # Function to update daily, weekly and all-time statistics
+    daily_lines = []  # Text lines for today's overview
     weekly_lines = []  # Text lines for the weekly overview
     total_lines = []  # Text lines for the all-time overview
 
+    daily_grand_total = 0  # Total study time across all subjects today
     weekly_grand_total = 0  # Total study time across all subjects this week
     all_time_grand_total = 0  # Total study time across all subjects since the beginning
 
     for subject in app_data["subjects"]:  # Go through all subjects, including archived ones
         subject_id = subject["id"]  # Get the permanent subject ID
+
+        daily_seconds = calculate_daily_logged_seconds(
+            app_data,
+            subject_id
+        )  # Calculate today's time for the subject
 
         weekly_seconds = calculate_weekly_logged_seconds(
             app_data,
@@ -114,8 +122,14 @@ def update_statistics():  # Function to update weekly and all-time statistics
             subject_id
         )  # Calculate all-time study time for the subject
 
+        daily_grand_total += daily_seconds  # Add to the combined daily total
         weekly_grand_total += weekly_seconds  # Add to the combined weekly total
         all_time_grand_total += total_seconds  # Add to the combined all-time total
+
+        if daily_seconds > 0:  # Only show subjects that have been studied today
+            daily_lines.append(
+                f'{subject["name"]}: {format_hours_minutes(daily_seconds)}'
+            )  # Add the subject to today's overview
 
         if not subject["archived"] or weekly_seconds > 0:
             weekly_lines.append(
@@ -129,6 +143,13 @@ def update_statistics():  # Function to update weekly and all-time statistics
                 f'{subject["name"]}{archived_text}: {format_hours_minutes(total_seconds)}'
             )  # Add the subject to the all-time overview
 
+    if daily_lines:
+        daily_lines.append(
+            f"\nTotalt: {format_hours_minutes(daily_grand_total)}"
+        )  # Add the combined daily total
+    else:
+        daily_lines.append("Ingen økter ennå i dag")  # Show a friendly message before the first session of the day
+
     weekly_lines.append(
         f"\nTotalt: {format_hours_minutes(weekly_grand_total)}"
     )  # Add the combined weekly total
@@ -136,6 +157,14 @@ def update_statistics():  # Function to update weekly and all-time statistics
     total_lines.append(
         f"\nTotalt: {format_hours_minutes(all_time_grand_total)}"
     )  # Add the combined all-time total
+
+    daily_statistics_label.config(
+        text="\n".join(daily_lines)
+    )  # Display today's statistics
+
+    today_label.config(
+        text=f"I dag: {format_hours_minutes(daily_grand_total)}"
+    )  # Display today's total in the timer card, so it is visible in compact mode too
 
     weekly_statistics_label.config(
         text="\n".join(weekly_lines)
@@ -508,10 +537,12 @@ def close_application():  # Function to safely save state and close the applicat
 
     # Save the current application preferences before closing
     app_settings["selected_subject_id"] = current_subject_id
-    app_settings["view_expanded"] = view_expanded
 
     app_settings["window_x"] = window.winfo_x()
     app_settings["window_y"] = window.winfo_y()
+
+    app_settings["window_width"] = window.winfo_width()
+    app_settings["window_height"] = window.winfo_height()  # Remember the window size, so it opens the same size next time
 
     save_settings(app_settings)  # Save the application preferences permanently
 
@@ -558,49 +589,78 @@ def recover_unfinished_session():  # Function to offer saving a session that was
     clear_active_session()  # Remove the backup so the question is not asked again
 
 
-def show_compact_view():  # Function to switch the application to compact mode
-    global view_expanded
+def fit_window_to_content():  # Function to make the window exactly as tall as its content
+    window.update_idletasks()  # Let Tkinter calculate the size of all widgets first
 
-    view_expanded = False
+    content_height = main_frame.winfo_reqheight()  # Height needed to show everything
 
-    app_settings["view_expanded"] = False
-    save_settings(app_settings)
-
-    expanded_content_frame.pack_forget()  # Hide the expanded controls and statistics
-
-    expand_view_button.pack(
-        anchor="e",
-        pady=(6, 8)
-    )  # Show the button used to expand the application
+    max_height = window.winfo_screenheight() - SCREEN_MARGIN  # Never make the window taller than the screen
 
     window.geometry(
-        COMPACT_GEOMETRY
-    )
+        f"{WINDOW_WIDTH}x{min(content_height, max_height)}"
+    )  # Resize the window; if the content doesn't fit, the user can scroll
 
 
-def show_expanded_view():  # Function to show the full application interface
-    global view_expanded
+def update_scroll_area(event=None):  # Function to update what can be scrolled when the content or window changes size
+    content_height = main_frame.winfo_reqheight()  # Height of everything in the application
 
-    view_expanded = True
+    scroll_canvas.configure(
+        scrollregion=(0, 0, scroll_canvas.winfo_width(), content_height)
+    )  # Tell the canvas how much content there is to scroll through
 
-    app_settings["view_expanded"] = True
-    save_settings(app_settings)
+    if content_height <= scroll_canvas.winfo_height():
+        scroll_canvas.yview_moveto(0)  # Go back to the top when everything fits
 
-    expand_view_button.pack_forget()  # Hide the compact-mode expand button
 
-    expanded_content_frame.pack(
+def resize_content_width(event):  # Function to make the content as wide as the window
+    scroll_canvas.itemconfigure(
+        content_window,
+        width=event.width
+    )  # Stretch the content to the full width of the canvas
+
+    update_scroll_area()  # The visible area changed, so check if scrolling is needed
+
+
+def scroll_with_mouse_wheel(event):  # Function to scroll with the mouse wheel or trackpad
+    if main_frame.winfo_reqheight() <= scroll_canvas.winfo_height():
+        return  # Do nothing if everything already fits
+
+    if event.num == 4 or event.delta > 0:
+        direction = -1  # Scroll up
+    elif event.num == 5 or event.delta < 0:
+        direction = 1  # Scroll down
+    else:
+        return
+
+    scroll_canvas.yview_scroll(
+        direction,
+        "units"
+    )  # Move the content a small step
+
+
+def show_statistics_page():  # Function to open the statistics page
+    main_page_frame.pack_forget()  # Hide the timer page
+
+    statistics_page.refresh()  # Recalculate the statistics with the newest data
+
+    statistics_page.frame.pack(
         fill="both",
         expand=True
-    )  # Show subject management and detailed statistics
+    )  # Show the statistics page
 
-    window.geometry(
-        EXPANDED_GEOMETRY
-    )
+    scroll_canvas.yview_moveto(0)  # Start at the top of the page
 
 
+def show_main_page():  # Function to go back to the timer page
+    statistics_page.frame.pack_forget()  # Hide the statistics page
 
+    main_page_frame.pack(
+        fill="both",
+        expand=True
+    )  # Show the timer page
 
-    
+    scroll_canvas.yview_moveto(0)  # Start at the top of the page
+
 
 app_data = load_data()  # Load saved application data
 
@@ -642,16 +702,60 @@ configure_styles(window)  # Apply the application's styles to the window and ttk
 # MAIN CONTAINER
 # -----------------------------
 
-main_frame = ttk.Frame(
+scroll_canvas = tk.Canvas(
     window,
+    background=BACKGROUND_COLOR,
+    highlightthickness=0,
+    borderwidth=0,
+    width=1,
+    height=1,
+    yscrollincrement=20
+)  # Create a canvas, which makes it possible to scroll the content when the window is small (with the trackpad or mouse wheel, without a visible scrollbar)
+
+scroll_canvas.pack(
+    side="left",
+    fill="both",
+    expand=True
+)  # Make the canvas fill the window
+
+
+main_frame = ttk.Frame(
+    scroll_canvas,
     style="App.TFrame",
     padding=12
 )  # Create the main container for everything in the application
 
-main_frame.pack(
-    fill="both",
-    expand=True
-)  # Make the main container fill the window
+content_window = scroll_canvas.create_window(
+    (0, 0),
+    window=main_frame,
+    anchor="nw"
+)  # Place the main container inside the scrollable canvas
+
+
+main_frame.bind(
+    "<Configure>",
+    update_scroll_area
+)  # Update the scroll area when the content changes size
+
+scroll_canvas.bind(
+    "<Configure>",
+    resize_content_width
+)  # Update the content width when the window changes size
+
+window.bind_all(
+    "<MouseWheel>",
+    scroll_with_mouse_wheel
+)  # Scroll with the mouse wheel or trackpad (Mac and Windows)
+
+window.bind_all(
+    "<Button-4>",
+    scroll_with_mouse_wheel
+)  # Scroll up with the mouse wheel (Linux)
+
+window.bind_all(
+    "<Button-5>",
+    scroll_with_mouse_wheel
+)  # Scroll down with the mouse wheel (Linux)
 
 
 # -----------------------------
@@ -669,13 +773,24 @@ title_label.pack(
 )  # Place the title on the left
 
 
+main_page_frame = ttk.Frame(
+    main_frame,
+    style="App.TFrame"
+)  # Container for the timer page (it is hidden while the statistics page is open)
+
+main_page_frame.pack(
+    fill="both",
+    expand=True
+)
+
+
 
 # -----------------------------
 # SUBJECT SELECTOR
 # -----------------------------
 
 subjects_title_label = ttk.Label(
-    main_frame,
+    main_page_frame,
     text="FAG",
     style="Section.TLabel"
 )  # Create the subject section heading
@@ -686,7 +801,7 @@ subjects_title_label.pack(
 
 
 subject_buttons_frame = ttk.Frame(
-    main_frame,
+    main_page_frame,
     style="App.TFrame"
 )  # Create a frame containing subject buttons
 
@@ -701,7 +816,7 @@ subject_buttons_frame.pack(
 # -----------------------------
 
 timer_card = ttk.Frame(
-    main_frame,
+    main_page_frame,
     style="Card.TFrame",
     padding=10
 )  # Create the main timer card
@@ -821,28 +936,26 @@ total_label.pack(
 )
 
 
-# -----------------------------
-# VIEW CONTROLS
-# -----------------------------
+today_label = ttk.Label(
+    timer_card,
+    text="",
+    style="MutedCardText.TLabel"
+)  # Create the label showing today's total study time
 
-expand_view_button = ttk.Button(
-    main_frame,
-    text="VIS MER ↓",
-    command=show_expanded_view,
-    style="Secondary.TButton"
-)  # Button used to open the expanded interface
-
-expand_view_button.pack(
-    anchor="e",
-    pady=(6, 8)
+today_label.pack(
+    pady=(2, 0)
 )
 
 
-
-expanded_content_frame = ttk.Frame(
-    main_frame,
+overview_frame = ttk.Frame(
+    main_page_frame,
     style="App.TFrame"
-)  # Create one container for everything that should only appear in expanded mode
+)  # Create one container for subject management and the statistics overview
+
+overview_frame.pack(
+    fill="both",
+    expand=True
+)
 
 
 # -----------------------------
@@ -850,26 +963,35 @@ expanded_content_frame = ttk.Frame(
 # -----------------------------
 
 management_frame = ttk.Frame(
-    expanded_content_frame,
+    overview_frame,
     style="App.TFrame"
 )  # Create a frame for subject management controls
 
 management_frame.pack(
-    anchor="w",
+    fill="x",
     pady=(0, 22)
 )
+
+for column_index in range(4):
+    management_frame.columnconfigure(
+        column_index,
+        weight=1,
+        uniform="management_buttons"
+    )  # Give all four buttons the same width, sharing the full row
 
 
 add_subject_button = ttk.Button(
     management_frame,
     text="+ LEGG TIL FAG",
     command=add_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Add Subject button
 
-add_subject_button.pack(
-    side="left",
-    padx=(0, 5)
+add_subject_button.grid(
+    row=0,
+    column=0,
+    sticky="ew",
+    padx=(0, 3)
 )
 
 
@@ -877,11 +999,13 @@ rename_subject_button = ttk.Button(
     management_frame,
     text="ENDRE NAVN",
     command=rename_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Rename Subject button
 
-rename_subject_button.pack(
-    side="left",
+rename_subject_button.grid(
+    row=0,
+    column=1,
+    sticky="ew",
     padx=3
 )
 
@@ -890,25 +1014,29 @@ archive_subject_button = ttk.Button(
     management_frame,
     text="FJERN FAG",
     command=archive_subject,
-    style="Secondary.TButton"
+    style="Toolbar.TButton"
 )  # Create the Archive Subject button
 
-archive_subject_button.pack(
-    side="left",
+archive_subject_button.grid(
+    row=0,
+    column=2,
+    sticky="ew",
     padx=3
 )
 
 
-collapse_view_button = ttk.Button(
+statistics_button = ttk.Button(
     management_frame,
-    text="VIS MINDRE ↑",
-    command=show_compact_view,
-    style="Secondary.TButton"
-)  # Button used to return to compact mode
+    text="STATISTIKK",
+    command=show_statistics_page,
+    style="Toolbar.TButton"
+)  # Button that opens the statistics page
 
-collapse_view_button.pack(
-    side="right",
-    padx=(8, 0)
+statistics_button.grid(
+    row=0,
+    column=3,
+    sticky="ew",
+    padx=(3, 0)
 )
 
 
@@ -917,7 +1045,7 @@ collapse_view_button.pack(
 # -----------------------------
 
 statistics_title_label = ttk.Label(
-    expanded_content_frame,
+    overview_frame,
     text="PROGRESJON",
     style="Section.TLabel"
 )  # Create the statistics section heading
@@ -929,7 +1057,7 @@ statistics_title_label.pack(
 
 
 statistics_frame = ttk.Frame(
-    expanded_content_frame,
+    overview_frame,
     style="App.TFrame"
 )  # Create the container for both statistics cards
 
@@ -950,6 +1078,45 @@ statistics_frame.columnconfigure(
 )  # Make both statistics columns use equal space
 
 
+daily_frame = ttk.Frame(
+    statistics_frame,
+    style="Card.TFrame",
+    padding=9
+)  # Create the card for today's statistics
+
+daily_frame.grid(
+    row=0,
+    column=0,
+    columnspan=2,
+    sticky="nsew",
+    pady=(0, 12)
+)  # Let today's card use the full width above the other two cards
+
+
+daily_title_label = ttk.Label(
+    daily_frame,
+    text="I DAG",
+    style="StatisticsTitle.TLabel"
+)
+
+daily_title_label.pack(
+    anchor="w",
+    pady=(0, 10)
+)
+
+
+daily_statistics_label = ttk.Label(
+    daily_frame,
+    text="",
+    style="Statistics.TLabel",
+    justify="left"
+)  # Create the text for today's statistics
+
+daily_statistics_label.pack(
+    anchor="w"
+)
+
+
 weekly_frame = ttk.Frame(
     statistics_frame,
     style="Card.TFrame",
@@ -957,7 +1124,7 @@ weekly_frame = ttk.Frame(
 )  # Create the weekly statistics card
 
 weekly_frame.grid(
-    row=0,
+    row=1,
     column=0,
     sticky="nsew",
     padx=(0, 6)
@@ -995,7 +1162,7 @@ all_time_frame = ttk.Frame(
 )  # Create the all-time statistics card
 
 all_time_frame.grid(
-    row=0,
+    row=1,
     column=1,
     sticky="nsew",
     padx=(6, 0)
@@ -1034,10 +1201,13 @@ refresh_subject_buttons()  # Create subject buttons when the application starts
 update_subject_display()  # Display the selected subject and its saved total
 update_statistics()  # Prepare weekly and all-time statistics
 
-if app_settings["view_expanded"]:
-    show_expanded_view()  # Restore expanded mode if it was used last
-else:
-    show_compact_view()  # Otherwise start in compact mode
+statistics_page = StatisticsPage(
+    main_frame,
+    app_data,
+    show_main_page
+)  # Create the statistics page (it is shown when the STATISTIKK button is pressed)
+
+fit_window_to_content()  # Make the window just tall enough for its content
     
     
 saved_x = app_settings["window_x"]  # Get the previously saved horizontal window position
@@ -1053,11 +1223,29 @@ window_position_is_visible = (
 
 
 if window_position_is_visible:
-    current_geometry = EXPANDED_GEOMETRY if view_expanded else COMPACT_GEOMETRY
+    window.geometry(
+        f"+{saved_x}+{saved_y}"
+    )  # Restore the window's previous screen position
+
+
+saved_width = app_settings["window_width"]  # Get the window width from when the app was last closed
+saved_height = app_settings["window_height"]  # Get the window height from when the app was last closed
+
+
+if saved_width is not None and saved_height is not None:
+    restored_width = min(
+        saved_width,
+        window.winfo_screenwidth()
+    )  # Make sure the window is not wider than the screen
+
+    restored_height = min(
+        saved_height,
+        window.winfo_screenheight() - SCREEN_MARGIN
+    )  # Make sure the window is not taller than the screen
 
     window.geometry(
-        f"{current_geometry}+{saved_x}+{saved_y}"
-    )  # Restore both the window size and its previous screen position
+        f"{restored_width}x{restored_height}"
+    )  # Restore the window size from last time (otherwise it fits the content)
 
 
 window.after(
