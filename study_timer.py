@@ -542,6 +542,9 @@ def close_application():  # Function to safely save state and close the applicat
     app_settings["window_x"] = window.winfo_x()
     app_settings["window_y"] = window.winfo_y()
 
+    app_settings["window_width"] = window.winfo_width()
+    app_settings["window_height"] = window.winfo_height()  # Remember the window size, so it opens the same size next time
+
     save_settings(app_settings)  # Save the application preferences permanently
 
     window.destroy()  # Close the application window
@@ -1241,7 +1244,27 @@ window_position_is_visible = (
 if window_position_is_visible:
     window.geometry(
         f"+{saved_x}+{saved_y}"
-    )  # Restore the window's previous screen position (the size is already set by the view mode)
+    )  # Restore the window's previous screen position
+
+
+saved_width = app_settings["window_width"]  # Get the window width from when the app was last closed
+saved_height = app_settings["window_height"]  # Get the window height from when the app was last closed
+
+
+if saved_width is not None and saved_height is not None:
+    restored_width = min(
+        saved_width,
+        window.winfo_screenwidth()
+    )  # Make sure the window is not wider than the screen
+
+    restored_height = min(
+        saved_height,
+        window.winfo_screenheight() - SCREEN_MARGIN
+    )  # Make sure the window is not taller than the screen
+
+    window.geometry(
+        f"{restored_width}x{restored_height}"
+    )  # Restore the window size from last time (otherwise it fits the content)
 
 
 window.after(
