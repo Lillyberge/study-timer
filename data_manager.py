@@ -5,6 +5,7 @@ from pathlib import Path  # Import Path to work with file paths
 
 
 DATA_FILE = Path(__file__).with_name("study_data.json")  # Location of the file where study data is stored
+ACTIVE_SESSION_FILE = Path(__file__).with_name("active_session.json")  # Location of the backup of an unfinished session
 
 
 def write_json_safely(file_path, data):  # Function to write JSON without risking a half-written file
@@ -164,3 +165,29 @@ def calculate_weekly_logged_seconds(app_data, subject_id):  # Function to calcul
             total_seconds += session["duration_seconds"]  # Add the session time
 
     return total_seconds  # Return the weekly total
+
+
+def save_active_session(subject_id, elapsed_seconds):  # Function to back up the unfinished session in case the app crashes
+    write_json_safely(
+        ACTIVE_SESSION_FILE,
+        {
+            "subject_id": subject_id,
+            "date": date.today().isoformat(),
+            "duration_seconds": int(elapsed_seconds)
+        }
+    )  # Save how far the session has come
+
+
+def load_active_session():  # Function to find an unfinished session left behind by a crash
+    if not ACTIVE_SESSION_FILE.exists():  # Check if a backup exists
+        return None  # Nothing to recover
+
+    try:
+        with ACTIVE_SESSION_FILE.open("r", encoding="utf-8") as file:
+            return json.load(file)  # Read the unfinished session
+    except (OSError, json.JSONDecodeError):
+        return None  # Ignore a backup that cannot be read
+
+
+def clear_active_session():  # Function to remove the backup once the session is saved or discarded
+    ACTIVE_SESSION_FILE.unlink(missing_ok=True)  # Delete the backup file if it exists
