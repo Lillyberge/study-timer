@@ -163,25 +163,25 @@ class StatisticsPage:  # A class keeps all the widgets and data for the statisti
 
         ttk.Label(
             week_card,
-            text="Daglig snitt",
+            text="Totalt for uken",
             style="MutedCardText.TLabel"
         ).pack(anchor="w")
-
-        self.average_label = ttk.Label(
-            week_card,
-            text="",
-            style="Hero.TLabel"
-        )  # The big number: average study time per day
-
-        self.average_label.pack(anchor="w")
 
         self.week_total_label = ttk.Label(
             week_card,
             text="",
-            style="MutedCardText.TLabel"
-        )  # Total for the whole week
+            style="Hero.TLabel"
+        )  # The big number: total study time for the week
 
-        self.week_total_label.pack(
+        self.week_total_label.pack(anchor="w")
+
+        self.average_label = ttk.Label(
+            week_card,
+            text="",
+            style="MutedCardText.TLabel"
+        )  # Average study time per day
+
+        self.average_label.pack(
             anchor="w",
             pady=(0, 10)
         )
@@ -342,8 +342,8 @@ class StatisticsPage:  # A class keeps all the widgets and data for the statisti
 
         self.average_seconds = week_total // days_so_far  # Average per day, like on the phone
 
-        self.average_label.config(text=format_duration(self.average_seconds))
-        self.week_total_label.config(text=f"Totalt for uken: {format_duration(week_total)}")
+        self.week_total_label.config(text=format_duration(week_total))
+        self.average_label.config(text=f"Daglig snitt: {format_duration(self.average_seconds)}")
 
         self.draw_chart()  # Draw the bars
         self.update_legend()  # Update the list of subjects
