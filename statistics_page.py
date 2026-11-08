@@ -649,6 +649,26 @@ class StatisticsPage:  # A class keeps all the widgets and data for the statisti
                 style="CardText.TLabel"
             ).grid(row=row_index, column=2, sticky="e")
 
+        if self.hover_index is not None:  # For a single day, also show the day's total (the week's total is already shown at the top)
+            total_row = len(rows)
+
+            ttk.Separator(
+                self.legend_frame,
+                orient="horizontal"
+            ).grid(row=total_row, column=0, columnspan=3, sticky="ew", pady=(6, 4))  # Thin line above the total
+
+            ttk.Label(
+                self.legend_frame,
+                text="Totalt",
+                style="StatisticsTitle.TLabel"
+            ).grid(row=total_row + 1, column=0, columnspan=2, sticky="w")
+
+            ttk.Label(
+                self.legend_frame,
+                text=format_duration(sum(seconds for subject_id, seconds in rows)),
+                style="StatisticsTitle.TLabel"
+            ).grid(row=total_row + 1, column=2, sticky="e")
+
 
     def update_all_time(self):  # Function to update the all-time numbers
         for widget in self.all_time_frame.winfo_children():
